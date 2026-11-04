@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "painel",
+      "runtimeExecutable": ".venv/Scripts/vagas.exe",
+      "runtimeArgs": ["dashboard"],
+      "port": 8765
+    },
+    {
+      "name": "painel-teste",
+      "runtimeExecutable": ".venv/Scripts/vagas.exe",
+      "runtimeArgs": ["dashboard", "--port", "8766"],
+      "port": 8766
+    }
+  ]
+}

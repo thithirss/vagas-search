@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+config/profile.yaml
+config/answers.yaml
+*.egg-info/
+config/foto.*
+.playwright-browsers/
+tools/
+
+# --- pessoal: nunca vai para o GitHub ---
+.venv-*/
+config/settings.yaml
+config/profile.yaml.bak*
+config/*.bak*
+.claude/settings.local.json
+INSTRUCOES_LOCAL.md
+*.desktop
+*.log

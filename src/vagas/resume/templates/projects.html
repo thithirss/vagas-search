@@ -1,0 +1,9 @@
+{% if projects %}
+<h2>{{ "Personal projects" if resume.language == "en" else "Projetos pessoais" }}</h2>
+{% for project in projects %}
+<div class="exp">
+  <div><b>{{ project.name }}</b></div>
+  <p>{{ project.description }}{% if project.stack %} <span class="small">{{ project.stack | join(" · ") }}</span>{% endif %}</p>
+</div>
+{% endfor %}
+{% endif %}
