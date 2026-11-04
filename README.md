@@ -4,9 +4,37 @@ Ferramenta de uso pessoal que **descobre vagas de desenvolvimento publicadas no 
 
 Não é produto. É pra rodar na sua máquina, com as suas contas.
 
+## Começar do zero (Windows)
+
+Nada pessoal vem no repositório: perfil, chaves, banco, currículos e sessões do navegador são criados
+na sua máquina e ficam fora do git (`.gitignore`). Precisa de Python 3.12+ e do Google Chrome.
+
+```powershell
+git clone <url-deste-repositório> vagas
+cd vagas
+py -3.12 -m venv .venv
+.\.venv\Scripts\pip install -e .
+.\.venv\Scripts\pip install patchright
+$env:PLAYWRIGHT_BROWSERS_PATH = "$PWD\.playwright-browsers"
+.\.venv\Scripts\patchright install chromium     # navegador usado para gerar o PDF do currículo
+
+.\.venv\Scripts\vagas setup      # ⬅️ pergunta seus dados e escreve config/profile.yaml e .env
+.\.venv\Scripts\vagas login      # entre no LinkedIn/Gupy no navegador do bot (Indeed: vagas login --normal --site indeed)
+.\.venv\Scripts\vagas dashboard --serve   # painel em http://localhost:8765
+```
+
+- **Sua chave da OpenAI** vai no `.env` (o `vagas setup` pergunta). Sem ela a ferramenta roda pelo caminho sem IA.
+  O gasto tem teto mensal em `config/settings.yaml` (`llm.monthly_budget_brl`).
+- `config/settings.yaml` nasce de `config/settings.example.yaml` na primeira execução e é seu: buscas,
+  blacklist de empresas, teto diário, janela de horário e a região aceita para vaga presencial/híbrida.
+- Opcionais no `.env`: Telegram (avisos e comandos), Gmail com senha de app (retornos das empresas, só leitura),
+  senha do LinkedIn (login na Gupy). Acesso ao painel pelo celular precisa de `tools/cloudflared.exe`
+  (baixe do GitHub oficial da Cloudflare) ou desligue com `remote_access: false`.
+- Detalhes do Windows (atalhos, parar/iniciar, armadilhas): `INSTRUCOES_WINDOWS.md`.
+
 ## Regras fixas (em código, não só em config)
 
-- **Só vagas das últimas 24h** e **só remoto**, em toda busca e toda vaga (`config.py: HARD_MAX_AGE_HOURS / HARD_REMOTE_ONLY`). Vagas mais antigas ou presenciais/híbridas são descartadas antes de qualquer chamada de IA.
+- **Só vagas recentes** (até 72h, `config.py: HARD_MAX_AGE_HOURS`) e **só remoto**, exceto presencial/híbrido nas cidades de `discovery.local_cities` (vazio = só remoto). O resto é descartado antes de qualquer chamada de IA.
 - **Só descrições em pt-BR** (`filters.job_languages`); descrições em inglês são descartadas por heurística sem IA. Vagas que exigem outro idioma além de inglês são puladas.
 - **Descoberta no LinkedIn sem usar a conta**: endpoint público `jobs-guest` com `geoId` do Brasil + filtros 24h/remoto; a sessão logada só entra para candidatar. Indeed continua no navegador (Cloudflare). Gupy usa a API pública.
 - **Cobertura por linguagem**: o LinkedIn personaliza "desenvolvedor" pelo seu perfil, então a descoberta roda uma matriz `base_queries` × fontes + `"desenvolvedor {stack}"` para cada item de `discovery.stack_queries` (php, rust, c#, java, ...). Hoje: 61 buscas no LinkedIn, 61 na Gupy, 10 no Indeed por ciclo.
