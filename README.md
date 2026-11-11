@@ -79,6 +79,22 @@ Um gabarito gravado em `data/comportamental/gupy.json` tem prioridade.
 **Gabarito próprio (opcional).** Se quiser respostas frase a frase, faça um teste você mesmo e grave as suas escolhas em
 `data/fitcultural/gupy.json` ou `data/comportamental/gupy.json` (fora do git). Quando esse arquivo existe, ele tem prioridade sobre a configuração.
 
+**Funciona para quem clonar este projeto?** Sim, os dois testes (Fit Cultural e Mapeamento comportamental) são
+respondidos automaticamente **sem nenhuma configuração do teste**: sem gabarito gravado, o bot usa as prioridades padrão
+de `config/settings.yaml` (que nasce de `config/settings.example.yaml`). Não precisa de IA, de chave da OpenAI nem do
+Claude para isso. O que precisa estar configurado para o bot *chegar* até o teste:
+
+| Requisito | Para quê | Onde |
+|---|---|---|
+| Gmail com **senha de app** (`GMAIL_ADDRESS` + `GMAIL_APP_PASSWORD`) | ler o e-mail "Etapa … desbloqueada" e pegar o link da etapa | `.env` (o `vagas setup` pergunta) |
+| **Senha do LinkedIn** (`LINKEDIN_PASSWORD`) | entrar na Gupy por "Entrar com LinkedIn" (a sessão da Gupy não fica salva) | `.env` |
+| `vagas run` rodando (painel → Iniciar, ou `/iniciar` no Telegram) | ler o e-mail a cada 30 min e abrir os testes | — |
+
+Opcional: mudar a ordem de prioridade (`vagas setup` pergunta a do Fit Cultural; a do comportamental fica em
+`fitcultural.behavioral_priority`), desligar um dos testes (`enabled: false` / `behavioral_enabled: false`) ou gravar um
+gabarito próprio em `data/`. Sem o Gmail configurado, as etapas não são detectadas e nada é respondido sozinho; dá para
+rodar na hora com `vagas etapas` só depois que o e-mail tiver sido lido.
+
 **Segurança.** O bot confere a ordem na tela antes de avançar. Se não reconhecer as frases ou não conseguir ordenar,
 ele **para sem enviar**, avisa no Telegram com o link e guarda um retrato da tela em `data/learn/fitcultural/`.
 Testes de raciocínio lógico, técnicos e entrevistas têm resposta certa ou medem a pessoa ao vivo e ficam com você: o bot só lista,
