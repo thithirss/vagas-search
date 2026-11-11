@@ -2044,3 +2044,103 @@ stacks:
     url: https://www.alura.com.br/curso-online-firebase-na-pratica
     status: todo
     year: ''
+  testes automatizados:
+  - name: Testes Automatizados com Selenium WebDriver e Java
+    issuer: Udemy
+    hours: 10
+    url: https://www.udemy.com/course/testes-automatizados-com-selenium-webdriver-e-java/
+    status: todo
+    year: ''
+  - name: Automatize Testes com Cypress - Testes End to End
+    issuer: Udemy
+    hours: 8
+    url: https://www.udemy.com/course/automatize-testes-com-cypress/
+    status: todo
+    year: ''
+  - name: Testes Automatizados com Python e Pytest
+    issuer: Udemy
+    hours: 7
+    url: https://www.udemy.com/course/testes-automatizados-com-python-e-pytest/
+    status: todo
+    year: ''
+  - name: Testes Automatizados com JavaScript e Jest
+    issuer: Alura
+    hours: 6
+    url: https://www.alura.com.br/curso-online-testes-automatizados-javascript-jest
+    status: todo
+    year: ''
+  apis/rest:
+  - name: APIs REST com Spring Boot
+    issuer: Udemy
+    hours: 10
+    url: https://www.udemy.com/course/apis-rest-com-spring-boot/
+    status: todo
+    year: ''
+  - name: Criando APIs RESTful com Node.js e Express
+    issuer: Udemy
+    hours: 8
+    url: https://www.udemy.com/course/criando-apis-restful-com-nodejs-e-express/
+    status: todo
+    year: ''
+  - name: API RESTful com Django REST Framework
+    issuer: Udemy
+    hours: 9
+    url: https://www.udemy.com/course/api-restful-com-django-rest-framework/
+    status: todo
+    year: ''
+  - name: APIs REST com Node.js e Express.js
+    issuer: Alura
+    hours: 12
+    url: https://www.alura.com.br/curso-online-nodejs-api-rest-express
+    status: todo
+    year: ''
+  github:
+  - name: Git e GitHub para Iniciantes - Controle e compartilhe seu código
+    issuer: Udemy
+    hours: 4.5
+    url: https://www.udemy.com/course/git-e-github-para-iniciantes/
+    status: todo
+    year: ''
+  - name: 'Git e GitHub: Controle de Versão para Iniciantes'
+    issuer: Udemy
+    hours: 3.5
+    url: https://www.udemy.com/course/git-e-github-controle-de-versao-para-iniciantes/
+    status: todo
+    year: ''
+  - name: 'Git e GitHub: Do básico ao avançado'
+    issuer: Udemy
+    hours: 6
+    url: https://www.udemy.com/course/git-e-github-do-basico-ao-avancado/
+    status: todo
+    year: ''
+  - name: 'Git e GitHub: Controle de Versão e Colaboração'
+    issuer: Alura
+    hours: 5
+    url: https://www.alura.com.br/curso-online-git-github-controle-de-versao-colaboracao
+    status: todo
+    year: ''
+  vite:
+  - name: 'Vite: Desenvolvimento Frontend Rápido e Moderno'
+    issuer: Udemy
+    hours: 3.5
+    url: https://www.udemy.com/course/vite-desenvolvimento-frontend-rapido-e-moderno/
+    status: todo
+    year: ''
+  - name: Curso Completo de Vite.js - Construindo Aplicações Modernas
+    issuer: Udemy
+    hours: 4
+    url: https://www.udemy.com/course/curso-completo-de-vitejs-construindo-aplicacoes-modernas/
+    status: todo
+    year: ''
+  - name: 'Vite: O Guia Definitivo para Desenvolvimento Frontend'
+    issuer: Udemy
+    hours: 2.5
+    url: https://www.udemy.com/course/vite-o-guia-definitivo-para-desenvolvimento-frontend/
+    status: todo
+    year: ''
+  - name: Front-End Web Development with React
+    issuer: Coursera
+    hours: 40
+    url: https://www.coursera.org/learn/front-end-react
+    status: todo
+    year: ''

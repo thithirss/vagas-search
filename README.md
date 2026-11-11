@@ -30,7 +30,59 @@ $env:PLAYWRIGHT_BROWSERS_PATH = "$PWD\.playwright-browsers"
 - Opcionais no `.env`: Telegram (avisos e comandos), Gmail com senha de app (retornos das empresas, só leitura),
   senha do LinkedIn (login na Gupy). Acesso ao painel pelo celular precisa de `tools/cloudflared.exe`
   (baixe do GitHub oficial da Cloudflare) ou desligue com `remote_access: false`.
+- **Próximas etapas:** quando uma empresa responde, o bot lê o e-mail e cuida do resto: o **teste de Fit Cultural da
+  Gupy é respondido sozinho, sem IA**, pela ordem de prioridade que o `vagas setup` pergunta (pessoas, inovação,
+  resultado, estrutura; fica em `config/settings.yaml`, seção `fitcultural`). Inscrição não finalizada volta para a
+  fila; entrevistas ganham um kit de preparação; respostas a recrutador só saem com o seu OK no Telegram ou no painel.
+  Mapeamento comportamental da Gupy também é automático; testes de raciocínio, técnicos e entrevistas ficam com você (lista, prazo e lembrete). Não precisa do Claude.
 - Detalhes do Windows (atalhos, parar/iniciar, armadilhas): `INSTRUCOES_WINDOWS.md`.
+
+## Fit Cultural da Gupy (automático, sem IA)
+
+Muitas vagas da Gupy pedem um **teste de Fit Cultural**: 10 questões, cada uma com 4 frases para ordenar de 1 (mais
+importante) a 4. O bot responde sozinho, **sem IA e sem precisar do Claude**, assim que o e-mail "Etapa Fit Cultural
+desbloqueada" chega.
+
+**Como ele decide a ordem.** Cada frase do teste mede um de 4 valores de cultura, e o bot reconhece qual pelas palavras
+da frase (testado nas 40 frases reais do teste: 40 certas):
+
+| Nº | Valor | Exemplos de frase |
+|---|---|---|
+| 1 | Pessoas e equipe | "a equipe seja o aspecto mais importante", "união do grupo" |
+| 2 | Inovação e flexibilidade | "flexível e adepta a mudanças", "tomar decisões de forma independente" |
+| 3 | Resultado e metas | "orientada a lucros e resultados", "superar a concorrência" |
+| 4 | Estrutura e estabilidade | "dia a dia bem estruturado", "ambiente de trabalho estável" |
+
+Ele ordena as frases pela **sua prioridade** e alterna os dois primeiros lugares em algumas questões, para o resultado
+não parecer "perfeito demais". Não existe resposta certa: a Gupy compara o seu resultado com o perfil que cada empresa
+definiu. Empresas de tecnologia costumam valorizar mais pessoas e inovação.
+
+**Como configurar:**
+1. Rode `vagas setup`. No bloco de preferências ele pergunta a ordem: digite os 4 números do mais importante para o
+   menos importante, por exemplo `1234` (pessoas, inovação, resultado, estrutura) ou `2134`. Enter mantém o padrão `1234`.
+2. A ordem fica em `config/settings.yaml`:
+   ```yaml
+   fitcultural:
+     enabled: true          # false = o bot não responde o teste (fica na lista para você fazer)
+     priority: ["cla", "adhocracia", "mercado", "hierarquia"]   # pessoas, inovação, resultado, estrutura
+   ```
+3. Pronto. O `vagas run` responde os testes que chegarem e avisa no Telegram. Para rodar na hora: pare o bot e use
+   `vagas etapas` (ou `vagas etapas --id N` para tentar de novo uma etapa específica, com o id da tela Retornos).
+
+**Mapeamento comportamental (também automático, sem IA).** Mesmo formato, com 21 questões de 3 frases que descrevem
+o seu jeito (método Big Five). O bot ordena pelos traços, nesta prioridade padrão para vagas de desenvolvimento:
+organização e entrega (`disciplina`) > curiosidade e tecnologia (`abertura`) > calma sob pressão (`estabilidade`) >
+cooperação (`amabilidade`) > sociabilidade (`extroversao`) > decidir no impulso (`impulso`). Ajuste em
+`config/settings.yaml` (`fitcultural.behavioral_priority`, ou `behavioral_enabled: false` para fazer você mesmo).
+Um gabarito gravado em `data/comportamental/gupy.json` tem prioridade.
+
+**Gabarito próprio (opcional).** Se quiser respostas frase a frase, faça um teste você mesmo e grave as suas escolhas em
+`data/fitcultural/gupy.json` ou `data/comportamental/gupy.json` (fora do git). Quando esse arquivo existe, ele tem prioridade sobre a configuração.
+
+**Segurança.** O bot confere a ordem na tela antes de avançar. Se não reconhecer as frases ou não conseguir ordenar,
+ele **para sem enviar**, avisa no Telegram com o link e guarda um retrato da tela em `data/learn/fitcultural/`.
+Testes de raciocínio lógico, técnicos e entrevistas têm resposta certa ou medem a pessoa ao vivo e ficam com você: o bot só lista,
+mostra o prazo e lembra.
 
 ## Regras fixas (em código, não só em config)
 

@@ -763,6 +763,10 @@ class Pipeline:
             return FlowResult("failed", f"exceção em {applier.name}: {str(e)[:150]}")
 
     def _previous_application(self, job: Job) -> FlowResult | None:
+        # a empresa avisou por e-mail que a inscrição NÃO foi finalizada (nextsteps.refinish): o registro de
+        # "enviada" era otimista, então esta vaga pode passar pela trava uma vez para o bot concluir
+        if self.db.kv_get(f"refinish:{job.id}") == "1":
+            return None
         previous = self.db.previous_application(job)
         if previous is None:
             return None
@@ -894,6 +898,8 @@ class Pipeline:
             summary.processed += 1
             try:
                 res = self.process(page, job, force=force and bool(job_ids))
+                if res.status in ("applied", "already_applied", "skipped") and self.db.kv_get(f"refinish:{job.id}") == "1":
+                    self.db.kv_set(f"refinish:{job.id}", "")   # concluída (ou descartada): a trava de reenvio volta a valer
             except KeyboardInterrupt:
                 raise
             except Exception as e:

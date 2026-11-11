@@ -529,6 +529,8 @@ views.retornos = async () => {
   return () => {
   const c = d.counts || {}, items = d.items || [];
   const label = {positivo: 'positivo', negativo: 'negativo', processo: 'em processo'}, cls = {positivo: 'applied', negativo: 'failed', processo: 'pending_question'};
+  const kindLabel = {fit_cultural: 'fit cultural', comportamental: 'teste comportamental', logica: 'raciocínio/habilidades', tecnico: 'teste técnico',
+    entrevista: 'entrevista', whatsapp: 'WhatsApp', finalizar: 'inscrição não finalizada', resposta: 'responder recrutador', etapa: 'próxima etapa'};
   const last = d.last_scan ? fmtDT(d.last_scan) : 'nunca';
   setHead('Retornos', `respostas das empresas lidas do seu e-mail · última leitura ${last}`);
   const noCfg = d.configured ? '' : `<section class="panel span12" style="border-color:var(--orange)"><h2>Leitura automática desligada</h2>
@@ -540,11 +542,18 @@ views.retornos = async () => {
   $('#content').innerHTML = noCfg + `
     <section class="kpis">${card('positivos (próxima etapa)', c.positivo || 0)}${card('em processo', c.processo || 0)}${card('negativos', c.negativo || 0)}
       ${card('sem retorno', Math.max(0, d.applied_total - new Set(items.filter(i => i.job_id).map(i => i.job_id)).size), '<div class="small muted" style="margin-top:6px">das ' + d.applied_total + ' candidaturas</div>')}</section>
-    ${todo.length ? `<section class="panel span12"><h2>Precisam de você <small>${todo.length}</small></h2><div class="cards">${todo.map(i => `
-      <div class="card"><div class="meta">${fmtDT(i.received_at)} · <span class="st ${cls[i.status]}">${label[i.status]}</span></div>
+    ${todo.length ? `<section class="panel span12"><h2>Próximas etapas <small>${todo.length}</small></h2><div class="cards">${todo.map(i => `
+      <div class="card"><div class="meta">${fmtDT(i.received_at)} · <span class="st ${cls[i.status]}">${esc(kindLabel[i.kind] || label[i.status])}</span>${i.deadline ? ` · <b style="color:var(--orange)">prazo ${fmtD(i.deadline)}</b>` : ''}</div>
         <div class="q">${esc(i.company || '')}${i.title ? ` · ${esc(i.title)}` : ''}</div><div>${esc(i.action)}</div>
+        ${i.auto_state ? `<div class="small" style="color:var(--ink-2)">🤖 ${esc(i.auto_state)}</div>` : ''}
         <div class="small muted">${esc(i.summary || '')}</div>
-        <div class="acts">${i.link ? `<a class="btn primary" href="${esc(i.link)}" target="_blank" rel="noopener">Abrir e-mail</a>` : ''}<button class="btn" data-done="${i.id}">Já fiz</button></div></div>`).join('')}</div></section>` : ''}
+        ${i.prep ? `<details><summary class="small">Preparação para a entrevista</summary><div class="small" style="white-space:pre-wrap;margin-top:6px">${esc(i.prep)}</div></details>` : ''}
+        ${i.reply_draft && !(i.reply_state || '').startsWith('enviado') ? `<div class="small muted" style="margin-top:6px">Rascunho de resposta (só sai quando você clicar em Enviar):</div>
+          <textarea class="draft" data-draft="${i.id}" rows="6" style="width:100%;margin-top:4px">${esc(i.reply_draft)}</textarea>` : ''}
+        <div class="acts">${i.action_url ? `<a class="btn primary" href="${esc(i.action_url)}" target="_blank" rel="noopener">Abrir etapa</a>` : ''}
+          ${i.link ? `<a class="btn ${i.action_url ? '' : 'primary'}" href="${esc(i.link)}" target="_blank" rel="noopener">Abrir e-mail</a>` : ''}
+          ${i.reply_draft && !(i.reply_state || '').startsWith('enviado') ? `<button class="btn primary" data-send="${i.id}">Enviar resposta</button>` : ''}
+          <button class="btn" data-done="${i.id}">Já fiz</button></div></div>`).join('')}</div></section>` : ''}
     <section class="panel span12"><h2>Todos os retornos <small>${items.length}</small></h2>
       <div class="toolbar"><input class="search" id="q" type="search" placeholder="Buscar empresa, vaga ou assunto" autocomplete="off"><span class="muted small" id="q-count"></span>
         <span style="flex:1"></span><button class="btn" id="r-scan" ${d.configured ? '' : 'disabled title="configure a senha de app primeiro"'}>Verificar e-mails agora</button></div>
@@ -555,6 +564,11 @@ views.retornos = async () => {
         <td>${i.link ? `<a href="${esc(i.link)}" target="_blank" rel="noopener">e-mail</a>` : ''}</td></tr>`).join(''), 'nenhum retorno lido ainda')}</section>`;
   bindRows(); bindSearch();
   $$('#content [data-done]').forEach(b => b.addEventListener('click', async () => { if (await act(b, () => post('/api/response/done', {id: +b.dataset.done, done: true}), 'Marcado como feito')) { route(); refreshCounts(); } }));
+  $$('#content [data-send]').forEach(b => b.addEventListener('click', async () => {
+    const id = +b.dataset.send, draft = $(`#content [data-draft="${id}"]`)?.value || '';
+    if (!await confirmBox('Enviar resposta?', 'O e-mail sai da sua conta do Gmail para o recrutador, respondendo na mesma conversa.', 'Enviar')) return;
+    if (await act(b, () => post('/api/response/send', {id, draft}), 'Resposta enviada')) { route(); refreshCounts(); }
+  }));
   $('#r-scan')?.addEventListener('click', () => startTask('inbox'));
   };
 };

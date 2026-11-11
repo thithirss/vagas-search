@@ -81,6 +81,22 @@ class Discovery(BaseModel):
         return self
 
 
+class FitCultural(BaseModel):
+    """Teste de Fit Cultural da Gupy respondido pelo bot (vagas/fitcultural.py), sem IA.
+
+    Cada frase do teste mede uma dimensão de cultura; o bot ordena as frases pela prioridade abaixo. Quem já gravou um
+    gabarito próprio (data/fitcultural/gupy.json) usa o gabarito; quem acabou de clonar usa esta lista (o `vagas setup`
+    pergunta)."""
+    enabled: bool = True
+    # cla = pessoas/equipe · adhocracia = inovação/flexibilidade · mercado = resultado/metas · hierarquia = estrutura/estabilidade
+    priority: list[str] = Field(default_factory=lambda: ["cla", "adhocracia", "mercado", "hierarquia"])
+    # Mapeamento comportamental (Big Five, 3 frases por questão): disciplina = organização/entrega · abertura = curiosidade,
+    # tecnologia · estabilidade = calma · amabilidade = cooperação · extroversao = sociabilidade · impulso = decidir no impulso
+    behavioral_enabled: bool = True
+    behavioral_priority: list[str] = Field(default_factory=lambda: ["disciplina", "abertura", "estabilidade", "amabilidade",
+                                                                    "extroversao", "impulso"])
+
+
 class Airlines(BaseModel):
     """Trilha de companhia aérea (vagas/airlines.py): buscas próprias + exceções de filtro só para essas vagas."""
     enabled: bool = False
@@ -201,6 +217,7 @@ class Settings(BaseModel):
     max_pages_per_search: int = 3
     filters: Filters = Field(default_factory=Filters)
     airlines: Airlines = Field(default_factory=Airlines)
+    fitcultural: FitCultural = Field(default_factory=FitCultural)
     remote_access: bool = True     # link do painel para o celular (túnel Cloudflare + chave, vagas/remote.py)
     limits: Limits = Field(default_factory=Limits)
     browser: BrowserCfg = Field(default_factory=BrowserCfg)

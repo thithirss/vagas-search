@@ -476,6 +476,7 @@ def secao_preferencias(prof: dict) -> None:
     else:
         cidades = []
     _grava_regiao(local, cidades)
+    _pergunta_fit_cultural()
     f["work_models_accepted"] = (f"Remoto; presencial ou híbrido só em {', '.join(cidades)}" if cidades else "Somente remoto")
     f["willing_to_relocate"] = _ask_opcao("Aceita mudar de cidade?", ["Não", "Sim"], default=f.get("willing_to_relocate", ""))
     f["accepts_clt"] = _ask_opcao("Aceita CLT?", ["Sim", "Não"], default=f.get("accepts_clt", ""))
@@ -516,6 +517,41 @@ def _grava_regiao(local: str, cidades: list[str]) -> None:
     cid = "  local_cities: " + json.dumps(cidades, ensure_ascii=False)
     texto = re.sub(r"(?m)^  local_location:.*$", lambda m: loc, texto, count=1)
     texto = re.sub(r"(?m)^  local_cities:.*$", lambda m: cid, texto, count=1)
+    SETTINGS.write_text(texto, encoding="utf-8")
+
+
+FIT_DIMS = [("cla", "Pessoas e equipe (colaboração, união, reconhecimento)"),
+            ("adhocracia", "Inovação e flexibilidade (mudança, autonomia, soluções novas)"),
+            ("mercado", "Resultado e metas (desempenho, competição, lucro)"),
+            ("hierarquia", "Estrutura e estabilidade (processos, planejamento, rotina)")]
+
+
+def _pergunta_fit_cultural() -> None:
+    """Prioridade usada pelo bot para responder sozinho o teste de Fit Cultural da Gupy (sem IA)."""
+    from .config import load_settings
+    atual = list(load_settings().fitcultural.priority)
+    console.print("\n   [dim]Teste de Fit Cultural da Gupy: o bot responde sozinho ordenando o que você mais valoriza numa empresa.[/]")
+    for i, (_, txt) in enumerate(FIT_DIMS, 1):
+        console.print(f"   {i}. {txt}")
+    keys = [k for k, _ in FIT_DIMS]
+    padrao = "".join(str(keys.index(k) + 1) for k in atual) if sorted(atual) == sorted(keys) else "1234"
+
+    def v_ordem(v: str) -> tuple[bool, str]:
+        d = re.sub(r"\D", "", v or "")
+        return (sorted(d) == list("1234"), "digite os 4 números, cada um uma vez (ex.: 1234 ou 2134)")
+
+    ordem = re.sub(r"\D", "", _ask("Sua ordem (mais importante primeiro)", default=padrao, validar=v_ordem,
+                                   ajuda="ex.: 1234 = pessoas, inovação, resultado, estrutura. Empresas de tecnologia\n"
+                                         "   costumam valorizar mais pessoas e inovação; não existe resposta certa."))
+    prio = [keys[int(c) - 1] for c in ordem]
+    texto = SETTINGS.read_text(encoding="utf-8")
+    linha = "  priority: " + json.dumps(prio)
+    if re.search(r"(?m)^fitcultural:", texto):
+        ini = re.search(r"(?m)^fitcultural:", texto).end()
+        m = re.compile(r"(?m)^  priority:.*$").search(texto, ini)
+        texto = texto[:m.start()] + linha + texto[m.end():] if m else texto[:ini] + "\n" + linha + texto[ini:]
+    else:
+        texto += f"\nfitcultural:\n  enabled: true\n{linha}\n"
     SETTINGS.write_text(texto, encoding="utf-8")
 
 

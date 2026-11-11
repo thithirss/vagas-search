@@ -89,3 +89,16 @@ Com o painel aberto, mande comandos para o seu bot do Telegram (crie um com o @B
 
 As pastas `.venv-linux` (Linux) e `.venv-antigo-windows` (de outra máquina, apontava para
 `C:\Users\Thi\...`) não são usadas e podem ser apagadas.
+
+## Próximas etapas (testes, entrevistas, respostas)
+
+O bot lê os retornos e cuida da etapa seguinte:
+
+- **Fit Cultural da Gupy**: respondido sozinho, sem IA, com o seu gabarito (`data/fitcultural/gupy.json`) ou, sem gabarito,
+  pela prioridade de `config/settings.yaml` (`fitcultural.priority`, perguntada no `vagas setup`). Se a Gupy mudar o teste,
+  ele para sem enviar e avisa no Telegram.
+- **Inscrição que a empresa diz não ter sido finalizada**: volta para a fila e o bot conclui.
+- **Entrevista / WhatsApp**: kit de preparação no Telegram e no painel (Retornos).
+- **Recrutador pedindo resposta**: rascunho no Telegram; só é enviado quando você toca em **Enviar**.
+- **Testes de raciocínio, comportamentais, técnicos e entrevistas**: ficam com você. Resumo às 8h, lembrete na véspera
+  do prazo e `/etapas` no Telegram para marcar o que já fez.

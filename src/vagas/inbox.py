@@ -19,6 +19,7 @@ import re
 import unicodedata
 from datetime import date, datetime, timedelta
 from html import unescape
+from urllib.parse import unquote
 
 from dotenv import dotenv_values
 
@@ -99,6 +100,130 @@ def classify(subject: str, body: str) -> tuple[str, str]:
     if PROC_RE.search(text):
         return "processo", ""
     return "", ""
+
+
+# ---------- próxima etapa: tipo, link e prazo ----------
+# "Vaga finalizada" é vaga ENCERRADA; o que interessa aqui é inscrição que o site diz não ter sido concluída
+INCOMPLETE_RE = re.compile(r"n[aã]o finaliz(ou|ada|ou a sua)|ainda n[aã]o (concluiu|finalizou|completou)|"
+                           r"(complete|finalize|conclua) (a |sua )?(candidatura|inscri[cç][aã]o)|candidatura incompleta|"
+                           r"inscri[cç][aã]o (incompleta|pendente)", re.I)
+NOREPLY_RE = re.compile(r"no-?reply|nao-?responda|naoresponda|notifica|mailer|bounce|gupy|linkedin|indeed|inhire|"
+                        r"solides|kenoby|recrutei|vagas\.com|geekhunter|catho|greenhouse|lever\.co|workable|mindsight|"
+                        r"mailquickin|trakstar|\.hire\.|teamtailor|pandape|bamboohr|smartrecruiters|recruitee", re.I)
+# pedido EXPLÍCITO de resposta: um "?" solto pega FAQ e boas-vindas automáticas (IOB, Sensedia)
+ASKS_REPLY_RE = re.compile(r"\b(qual (e |seria )?(a )?sua (disponibilidade|pretens[aã]o)|sua disponibilidade (para|de)|"
+                           r"poderia (me |nos )?(enviar|informar|responder|confirmar|retornar)|"
+                           r"pode (me |nos )?(enviar|informar|responder|confirmar)|por (gentileza|favor),? (envie|informe|responda|confirme)|"
+                           r"aguardo (o )?(seu|sua) (retorno|resposta)|fico no aguardo|responda (este|a este) e-?mail|"
+                           r"me (envie|informe|confirme)|tem interesse (em|na) (seguir|continuar|vaga)|"
+                           r"what is your availability|could you (send|share|confirm|let me know)|please (reply|confirm|let me know))\b", re.I)
+
+KIND_LABEL = {"fit_cultural": "Teste de fit cultural", "comportamental": "Teste comportamental", "logica": "Teste de raciocínio/habilidades",
+              "tecnico": "Teste ou desafio técnico", "entrevista": "Entrevista", "whatsapp": "Conversa no WhatsApp",
+              "finalizar": "Inscrição não finalizada", "resposta": "Recrutador pediu resposta", "etapa": "Próxima etapa"}
+
+
+def kind_of(subject: str, body: str, status: str, sender: str = "") -> str:
+    """Que tipo de próxima etapa o e-mail pede. '' quando não pede nada."""
+    t = _fold(f"{subject}\n{body[:3000]}")
+    if INCOMPLETE_RE.search(f"{subject}\n{body[:3000]}") and "vaga finalizada" not in t:
+        return "finalizar"
+    if status != "positivo":
+        # recrutador de verdade (não plataforma) perguntando algo também é próxima etapa
+        if status == "processo" and sender and not NOREPLY_RE.search(sender) and ASKS_REPLY_RE.search(body[:2000]):
+            return "resposta"
+        return ""
+    if "fit cultural" in t or "mapeamento cultural" in t or "cultura organizacional" in t:
+        return "fit_cultural"
+    if re.search(r"comportamental|perfil comportamental|disc\b|personalidade", t):
+        return "comportamental"
+    if re.search(r"raciocinio|logic|mindsight|mapeamento de habilidades|habilidades cognitivas", t):
+        return "logica"
+    if re.search(r"desafio|case tecnico|teste tecnico|code ?challenge|hackerrank|codility|coderbyte", t):
+        return "tecnico"
+    if "whatsapp" in t:
+        return "whatsapp"
+    if re.search(r"entrevista|interview|bate-?papo|conversa com", t):
+        return "entrevista"
+    if sender and not NOREPLY_RE.search(sender) and ASKS_REPLY_RE.search(body[:2000]):
+        return "resposta"
+    return "etapa"
+
+
+_LINK_RANK = [
+    (r"assessments\.gupy\.io|/fitcultural|mindsight|\.gupy\.io/candidates|portal\.gupy\.io|email\.gupy\.com\.br/c/",
+     ("fit_cultural", "comportamental", "logica", "etapa", "tecnico", "finalizar")),
+    (r"wa\.me|api\.whatsapp|whatsapp\.com", ("whatsapp",)),
+    (r"calendly|meet\.google|teams\.microsoft|zoom\.us|fcinterview|interview|agenda", ("entrevista",)),
+    (r"hackerrank|codility|coderbyte|github\.com|forms\.gle|docs\.google\.com/forms|typeform", ("tecnico", "etapa")),
+    (r"\.gupy\.io|inhire|solides|recrutei|kenoby|vagas\.com|greenhouse|lever\.co|workable", ("finalizar", "etapa", "fit_cultural",
+                                                                                              "comportamental", "logica", "tecnico", "entrevista")),
+]
+_LINK_SKIP = re.compile(r"fonts\.googleapis|fonts\.gstatic|unsubscribe|descadastr|optout|opt-out|privacidade|privacy|termos|terms|facebook\.com|instagram\.com|"
+                        r"twitter\.com|x\.com/|youtube\.com|linkedin\.com/company|/help|suporte|support|\.(png|jpe?g|gif|svg)(\?|$)", re.I)
+
+
+def links_of(msg) -> list[str]:
+    """hrefs do HTML do e-mail, na ordem, sem rastreadores óbvios de descadastro/redes sociais."""
+    out: list[str] = []
+    for part in msg.walk() if msg.is_multipart() else [msg]:
+        if part.get_content_type() not in ("text/html", "text/plain") or part.get_filename():
+            continue
+        try:
+            txt = (part.get_payload(decode=True) or b"").decode(part.get_content_charset() or "utf-8", errors="replace")
+        except Exception:
+            continue
+        found = re.findall(r'href=["\'](https?://[^"\'\s>]+)', txt, re.I) or re.findall(r"https?://[^\s<>\"')\]]+", txt)
+        for u in found:
+            u = unescape(u)
+            # rastreador que carrega o destino no caminho (awstrack ".../L0/https:%2F%2Fapp.mindsight...")
+            m = re.search(r"/(https?(?::|%3A)(?:%2F%2F|//).+)$", u[8:], re.I)
+            if m:
+                u = re.sub(r"/\d+/[\w-]+=*$", "", unquote(m.group(1)))
+            if u not in out and not _LINK_SKIP.search(u):
+                out.append(u)
+    return out
+
+
+def pick_action_url(links: list[str], kind: str) -> str:
+    for pat, kinds in _LINK_RANK:
+        if kind in kinds:
+            for u in links:
+                if re.search(pat, u, re.I):
+                    return u[:900]
+    return ""
+
+
+_MESES = {m: i for i, m in enumerate(["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro",
+                                      "outubro", "novembro", "dezembro"], 1)}
+
+
+def extract_deadline(text: str, received: datetime | None = None) -> str:
+    """Prazo citado no e-mail ("até 24/11/2026", "prazo: 05/12", "até o dia 3 de dezembro"). ISO ou ''."""
+    ref = received or datetime.now()
+    t = _fold(text[:6000])
+    for m in re.finditer(r"(?:ate|prazo|limite|expira|valido ate|disponivel ate|encerra)[^0-9]{0,40}?"
+                         r"(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?", t):
+        d, mo, y = int(m.group(1)), int(m.group(2)), m.group(3)
+        year = int(y) + (2000 if y and len(y) == 2 else 0) if y else ref.year
+        try:
+            dt = date(year, mo, d)
+        except ValueError:
+            continue
+        if not y and dt < ref.date():
+            dt = date(year + 1, mo, d)
+        return dt.isoformat()
+    for m in re.finditer(r"(?:ate|prazo|limite)[^0-9]{0,30}?(\d{1,2}) de (" + "|".join(_MESES) + r")", t):
+        try:
+            dt = date(ref.year, _MESES[m.group(2)], int(m.group(1)))
+        except ValueError:
+            continue
+        return (dt if dt >= ref.date() else date(ref.year + 1, dt.month, dt.day)).isoformat()
+    m = re.search(r"(?:em|dentro de|nas proximas) (\d{1,2}) (dias|horas)", t)
+    if m:
+        n = int(m.group(1))
+        return (ref + (timedelta(days=n) if m.group(2) == "dias" else timedelta(hours=n))).date().isoformat()
+    return ""
 
 
 def llm_classify(llm, subject: str, body: str) -> tuple[str, str]:
@@ -204,13 +329,60 @@ def _text_of(msg) -> str:
     return re.sub(r"\s+", " ", unescape(plain)).strip()
 
 
-def save_response(db, *, msg_key, received_at, sender, subject, snippet, status, summary, action, link, company, job_id) -> bool:
+def save_response(db, *, msg_key, received_at, sender, subject, snippet, status, summary, action, link, company, job_id,
+                  kind="", action_url="", deadline="", message_id="", reply_to="") -> bool:
     cur = db.conn.execute(
-        "INSERT OR IGNORE INTO email_responses (msg_key, received_at, sender, subject, snippet, status, summary, action, link, company, job_id, created_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        (msg_key, received_at, sender, subject, snippet, status, summary, action, link, company, job_id, datetime.now().isoformat(timespec="seconds")))
+        "INSERT OR IGNORE INTO email_responses (msg_key, received_at, sender, subject, snippet, status, summary, action, link, company, job_id, "
+        "created_at, kind, action_url, deadline, message_id, reply_to) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (msg_key, received_at, sender, subject, snippet, status, summary, action, link, company, job_id,
+         datetime.now().isoformat(timespec="seconds"), kind, action_url, deadline, message_id, reply_to))
     db.conn.commit()
     return cur.rowcount > 0
+
+
+def backfill(db, log=print) -> int:
+    """Retornos antigos (de antes das próximas etapas): baixa de novo só esses e-mails e preenche tipo, link e prazo."""
+    rows = db.conn.execute("SELECT id, msg_key, status, sender FROM email_responses WHERE kind IS NULL AND msg_key LIKE 'gm:%'").fetchall()
+    if not rows or not configured():
+        return 0
+    addr, pwd = credentials()
+    M = imaplib.IMAP4_SSL(IMAP_HOST); n = 0
+    try:
+        M.login(addr, pwd)
+        # "Todos os e-mails" acha também o que já foi arquivado; o nome muda com o idioma, então vai pelo marcador \All
+        typ, lst = M.list()
+        allf = next((l.decode(errors="replace") for l in (lst or []) if b"\\All" in l), "")
+        m = re.search(r'"([^"]+)"\s*$', allf)
+        if not (m and M.select(f'"{m.group(1)}"', readonly=True)[0] == "OK"):
+            M.select("INBOX", readonly=True)
+        for r in rows:
+            typ, data = M.uid("SEARCH", None, "X-GM-MSGID", r["msg_key"][3:])
+            uids = (data[0] or b"").split() if typ == "OK" and data else []
+            kind = action_url = deadline = mid = rto = ""
+            if uids:
+                typ, parts = M.uid("FETCH", uids[-1], "(BODY.PEEK[])")
+                if typ == "OK" and parts and isinstance(parts[0], tuple):
+                    msg = email.message_from_bytes(parts[0][1])
+                    subject, body = _decode(msg.get("Subject")), _text_of(msg)
+                    kind = kind_of(subject, body, r["status"], r["sender"] or "")
+                    action_url = pick_action_url(links_of(msg), kind) if kind else ""
+                    try:
+                        rdt = email.utils.parsedate_to_datetime(msg.get("Date")).astimezone().replace(tzinfo=None)
+                    except Exception:
+                        rdt = None
+                    deadline = extract_deadline(f"{subject}\n{body}", rdt) if kind else ""
+                    mid, rto = (msg.get("Message-ID") or "").strip(), _decode(msg.get("Reply-To") or msg.get("From"))
+            db.conn.execute("UPDATE email_responses SET kind=?, action_url=?, deadline=?, message_id=?, reply_to=? WHERE id=?",
+                            (kind, action_url, deadline, mid, rto, r["id"]))
+            n += 1
+        db.conn.commit()
+    finally:
+        try:
+            M.logout()
+        except Exception:
+            pass
+    log(f"e-mail: {n} retornos antigos completados com tipo, link e prazo")
+    return n
 
 
 def scan(db, days: int | None = None, log=print, llm=None) -> dict:
@@ -256,19 +428,30 @@ def scan(db, days: int | None = None, log=print, llm=None) -> dict:
             if not status:
                 mark_seen(db, key)
                 continue
-            if not job_id and status == "processo":
+            kind = kind_of(subject, body, status, sender)
+            if not job_id and status == "processo" and kind != "resposta":
                 mark_seen(db, key)
                 continue   # confirmação genérica sem candidatura conhecida: não é retorno útil
             try:
-                received = email.utils.parsedate_to_datetime(msg.get("Date")).astimezone().isoformat(timespec="seconds")
+                rdt = email.utils.parsedate_to_datetime(msg.get("Date")).astimezone()
+                received = rdt.isoformat(timespec="seconds")
             except Exception:
-                received = datetime.now().isoformat(timespec="seconds")
+                rdt, received = None, datetime.now().isoformat(timespec="seconds")
             link = f"https://mail.google.com/mail/?authuser={addr}#all/thread-f:{thrid}|msg-f:{msgid}" if msgid else ""
-            snippet = body[:280]
+            snippet = body[:3000] if kind == "resposta" else body[:280]   # o rascunho de resposta precisa do e-mail inteiro
+            if kind == "finalizar":
+                action = "Inscrição não finalizada: o bot tenta concluir sozinho"
+            elif kind == "resposta":
+                action = "Responder o recrutador (rascunho no Telegram)"
+            extra = {"kind": kind, "action_url": pick_action_url(links_of(msg), kind) if kind else "",
+                     "deadline": extract_deadline(f"{subject}\n{body}", rdt.replace(tzinfo=None) if rdt else None) if kind else "",
+                     "message_id": (msg.get("Message-ID") or "").strip(), "reply_to": _decode(msg.get("Reply-To") or msg.get("From"))}
             if save_response(db, msg_key=key, received_at=received, sender=sender, subject=subject, snippet=snippet, status=status,
-                             summary=subject[:200], action=action, link=link, company=company, job_id=job_id):
+                             summary=subject[:200], action=action, link=link, company=company, job_id=job_id, **extra):
                 out[status] += 1
-                out["novos"].append({"status": status, "subject": subject, "company": company, "action": action})
+                rid = db.conn.execute("SELECT id FROM email_responses WHERE msg_key=?", (key,)).fetchone()[0]
+                out["novos"].append({"id": rid, "status": status, "subject": subject, "company": company, "action": action, "kind": kind,
+                                     "deadline": extra["deadline"], "url": extra["action_url"]})
         db.kv_set("inbox_last_scan", datetime.now().isoformat(timespec="seconds"))
     finally:
         try:
@@ -283,7 +466,7 @@ def notify_new(found: dict) -> None:
     """Telegram: cada retorno positivo novo vai na hora; negativos e confirmações só no resumo."""
     from .notify import notify
     for n in found.get("novos", []):
-        if n["status"] == "positivo":
+        if n["status"] == "positivo" and not n.get("kind"):   # com tipo de etapa, o aviso completo sai de nextsteps.announce_new
             notify(f"🎉 Retorno positivo: {n['company'] or n['subject'][:60]}\n{n['action']}")
     neg, proc = found.get("negativo", 0), found.get("processo", 0)
     if neg or proc:

@@ -336,15 +336,24 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
     last_error = ""
     inbox_every = rt.s.limits.inbox_interval_minutes
 
-    def inbox_tick():
+    def inbox_tick(with_browser: bool = False):
         # retornos das empresas no e-mail a cada N min (só leitura; positivo vai na hora para o Telegram)
-        from . import inbox
+        # e, em seguida, as próximas etapas (vagas/nextsteps.py): fit cultural, inscrição não finalizada, lembretes...
+        from . import inbox, nextsteps
+        new_ids: list[int] = []
         try:
             if inbox_every > 0 and inbox.configured() and inbox.due(rt.db, inbox_every):
-                inbox.notify_new(inbox.scan(rt.db, log=console.print, llm=rt.llm))
+                found = inbox.scan(rt.db, log=console.print, llm=rt.llm)
+                inbox.notify_new(found)
+                new_ids = [n["id"] for n in found.get("novos", []) if n.get("kind")]
         except Exception as e:
             console.print(f"[yellow]e-mail: varredura falhou ({str(e)[:120]}); tento de novo em {inbox_every} min[/]")
             rt.db.kv_set("inbox_last_try", datetime.now().isoformat(timespec="seconds"))   # não mexe em inbox_last_scan: nada é pulado
+        try:
+            # o navegador só é usado fora da fila (entre uma vaga e outra ele está no meio de outra candidatura)
+            nextsteps.tick(rt.db, rt.llm, rt.profile, browser=rt.browser if with_browser else None, new_ids=new_ids, log=console.print)
+        except Exception as e:
+            console.print(f"[yellow]etapas: falhou ({type(e).__name__}: {str(e)[:120]})[/]")
 
     p.between_jobs = inbox_tick
     console.print(f"[bold]run[/] janela {rt.s.limits.active_hours[0]}-{rt.s.limits.active_hours[1]} · descoberta a cada {rt.s.limits.discovery_interval_minutes} min · teto {rt.s.limits.max_applications_per_day}/dia. Ctrl+C para parar.")
@@ -353,10 +362,10 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
             if not p.pacer.in_active_hours():
                 secs = p.pacer.seconds_until_active()
                 console.print(f"[dim]fora da janela ativa; dormindo {secs//60} min[/]")
-                inbox_tick()   # o e-mail continua sendo lido enquanto o bot dorme
+                inbox_tick(with_browser=True)   # o e-mail continua sendo lido enquanto o bot dorme
                 stopflag.nap(min(secs, 1800, max(60, inbox_every * 60)))
                 continue
-            inbox_tick()
+            inbox_tick(with_browser=True)
             last = rt.db.kv_get("last_discovery")
             due = not last or datetime.fromisoformat(last) + interval <= datetime.now()
             # A fila já existente tem prioridade sobre outra varredura completa.
@@ -394,6 +403,21 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
             stopflag.nap(nxt)
     except (KeyboardInterrupt, SystemExit):   # Ctrl+C ou SIGTERM do painel/reinício: encerra limpo, sem traceback no log
         console.print("\n[dim]parando…[/]" if not stopflag.requested() else "")
+    finally:
+        rt.close()
+
+
+@app.command()
+def etapas(retry: Optional[int] = typer.Option(None, "--id", help="tentar de novo só esta etapa (id em Retornos)")):
+    """Próximas etapas agora: fit cultural da Gupy, inscrições não finalizadas, preparação e lembretes (o `run` faz isso sozinho)."""
+    from . import nextsteps
+    rt = Runtime(stop_grace=30)
+    try:
+        if retry:
+            rt.db.conn.execute("UPDATE email_responses SET auto_state=NULL, done=0 WHERE id=?", (retry,)); rt.db.conn.commit()
+        nextsteps.tick(rt.db, rt.llm, rt.profile, browser=rt.browser, log=console.print)
+        for r in nextsteps.open_steps(rt.db)[:15]:
+            console.print(f"  [{r['id']}] {r['kind']:<15} {(r['company'] or '?')[:30]:<30} {r.get('deadline') or '':<10} {r.get('auto_state') or ''}")
     finally:
         rt.close()
 

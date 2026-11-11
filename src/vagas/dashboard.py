@@ -329,7 +329,14 @@ def _pid_alive(pid: int) -> bool:
             return False
         try:
             code = ctypes.c_ulong()
-            return bool(k32.GetExitCodeProcess(h, ctypes.byref(code))) and code.value == 259   # STILL_ACTIVE
+            if not (k32.GetExitCodeProcess(h, ctypes.byref(code)) and code.value == 259):   # STILL_ACTIVE
+                return False
+            # o Windows REUSA números de processo: o pid gravado de um bot que já saiu pode ser agora de outro
+            # programa (11/11: o painel via "rodando" e o atalho não iniciava o bot). Só vale se ainda for um Python.
+            buf = ctypes.create_unicode_buffer(1024); size = ctypes.c_ulong(1024)
+            if k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                return Path(buf.value).name.lower().startswith("python")
+            return True
         finally:
             k32.CloseHandle(h)
     try:
@@ -593,6 +600,15 @@ def serve(settings: Settings, port: int = 8765) -> None:
                     data.dismiss_pending(int(payload["id"]), bool(payload.get("skip_job"))); return self._json({"ok": True})
                 if u.path == "/api/response/done":
                     data.set_response_done(int(payload["id"]), bool(payload.get("done", True))); return self._json({"ok": True})
+                if u.path == "/api/response/send":
+                    # resposta ao recrutador: só sai com este clique (ou o botão "Enviar" do Telegram)
+                    from . import nextsteps
+                    rid = int(payload["id"])
+                    if isinstance(payload.get("draft"), str) and payload["draft"].strip():
+                        data.db.conn.execute("UPDATE email_responses SET reply_draft=? WHERE id=?", (payload["draft"].strip(), rid))
+                        data.db.conn.commit()
+                    res = nextsteps.send_reply(data.db, rid)
+                    return self._json({"ok": True, "result": res} if res == "enviado" else {"error": res}, 200 if res == "enviado" else 400)
                 if u.path == "/api/pending/resolved":
                     data.resolve_pending(int(payload["id"])); return self._json({"ok": True})
                 if u.path == "/api/open":

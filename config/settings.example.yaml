@@ -51,6 +51,16 @@ discovery:
 # Buscas extras fora da matriz (também forçadas para o teto de idade + remoto)
 searches: []
 
+# Teste de Fit Cultural da Gupy: o bot responde sozinho, sem IA, ordenando as frases por esta prioridade
+# (o `vagas setup` pergunta). cla = pessoas/equipe · adhocracia = inovação/flexibilidade · mercado = resultado/metas ·
+# hierarquia = estrutura/estabilidade. Quem gravou um gabarito próprio (data/fitcultural/gupy.json) usa o gabarito.
+fitcultural:
+  enabled: true
+  priority: ["cla", "adhocracia", "mercado", "hierarquia"]
+  # Mapeamento comportamental (3 frases por questão, traços do Big Five), também sem IA
+  behavioral_enabled: true
+  behavioral_priority: ["disciplina", "abertura", "estabilidade", "amabilidade", "extroversao", "impulso"]
+
 # Trilha de companhia aérea (pedido em 29/10: benefício de viagens). Vagas dessas empresas furam a fila e, além de
 # dev, aceitam suporte/infra de TI; a aderência à stack de dev não barra. Remoto ou presencial/híbrido na região
 # (aeroportos da sua região entram em discovery.local_cities). Inglês obrigatório e sênior continuam fora.

@@ -209,6 +209,12 @@ class DB:
         cols = {r[1] for r in self.conn.execute("PRAGMA table_info(llm_usage)")}
         if "cached_tokens" not in cols:
             self.conn.execute("ALTER TABLE llm_usage ADD COLUMN cached_tokens INTEGER DEFAULT 0")
+        # próximas etapas (vagas/nextsteps.py): tipo, link da etapa, prazo, kit de preparação e rascunho de resposta
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(email_responses)")}
+        for col in ("kind", "action_url", "deadline", "prep", "reply_draft", "reply_state", "message_id", "reply_to",
+                    "reminded", "auto_state"):
+            if col not in cols:
+                self.conn.execute(f"ALTER TABLE email_responses ADD COLUMN {col} TEXT")
         self.conn.commit()
 
     # ---------- jobs ----------

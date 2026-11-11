@@ -28,6 +28,7 @@ COMMANDS = [
     ("fila", "Próximas vagas da fila"),
     ("pendencias", "O que precisa de você"),
     ("retornos", "Respostas das empresas (e-mail)"),
+    ("etapas", "Próximas etapas: testes, entrevistas, prazos"),
     ("painel", "Link do painel para abrir no celular"),
     ("log", "Últimas linhas do bot"),
     ("iniciar", "Começar a rodar o dia (pede confirmação)"),
@@ -227,6 +228,16 @@ class TelegramBot:
         lines.append(f"\n🕑 Última leitura do e-mail: {e(last or 'nunca')}" + ("" if d["configured"] else " (leitura automática desligada: falta a senha de app no .env)"))
         self.send("\n".join(lines), buttons=[[("🔄 Verificar e-mails agora", "inbox")]] if d["configured"] else None)
 
+    def cmd_etapas(self, arg: str = "") -> None:
+        from . import nextsteps
+        steps = nextsteps.open_steps(self._data().db)
+        if not steps:
+            return self.send("🙌 Nenhuma etapa esperando você.")
+        self.send(f"🎯 <b>{len(steps)} próxima(s) etapa(s)</b> (prazo mais curto primeiro)")
+        for r in steps[:10]:
+            extra = f"\n🤖 {e(r['auto_state'])}" if r.get("auto_state") else ""
+            self.send(nextsteps.fmt_step(r) + extra, buttons=nextsteps._done_btn(r))
+
     def cmd_painel(self, arg: str = "") -> None:
         from . import remote
         link = remote.current_link(self._data().db)
@@ -263,10 +274,35 @@ class TelegramBot:
         self.send(f"🔔 Aviso a cada candidatura: <b>{'ligado' if on else 'desligado'}</b>. "
                   f"(O resumo de cada rodada continua chegando.)")
 
+    def _step_button(self, act: str, rid: int) -> None:
+        from . import nextsteps
+        db = self._data().db
+        r = db.conn.execute("SELECT * FROM email_responses WHERE id=?", (rid,)).fetchone()
+        if not r:
+            return self.send("Não achei essa etapa.")
+        who = e(r["company"] or r["sender"] or "?")
+        if act == "done":
+            db.conn.execute("UPDATE email_responses SET done=1 WHERE id=?", (rid,)); db.conn.commit()
+            return self.send(f"✅ Marcado como feito: {who}.")
+        if act == "prep":
+            return self.send(nextsteps.fmt_step(dict(r), with_prep=True) if r["prep"] else "Ainda não há preparação para essa etapa.")
+        if act == "drop":
+            db.conn.execute("UPDATE email_responses SET reply_state='descartado', done=1 WHERE id=?", (rid,)); db.conn.commit()
+            return self.send(f"✖️ Rascunho descartado ({who}). Nada foi enviado.")
+        if act == "send":
+            try:
+                res = nextsteps.send_reply(db, rid)
+            except Exception as ex:
+                res = f"falhou: {type(ex).__name__}: {str(ex)[:150]}"
+            return self.send(f"📤 Resposta para {who}: <b>{e(res)}</b>.")
+
     def on_button(self, data: str) -> None:
         from .dashboard import running_tasks, start_task, stop_task
         if data == "cancel":
             return self.send("Ok, nada feito.")
+        m = re.match(r"^(done|prep|send|drop):(\d+)$", data)
+        if m:
+            return self._step_button(m.group(1), int(m.group(2)))
         if data == "ask_run":
             return self.cmd_iniciar()
         if data == "log":
