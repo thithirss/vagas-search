@@ -20,10 +20,9 @@ from .db import DB
 STATIC = Path(__file__).parent / "dashboard_static"
 import threading
 _COURSES_LOCK = threading.Lock()   # cliques rápidos no painel não podem gravar courses.yaml ao mesmo tempo
-PRICES = {  # USD por 1M tokens (entrada, saída) — ajuste se trocar de modelo
-    "gpt-4.1-mini": (0.40, 1.60), "gpt-4.1": (2.00, 8.00), "gpt-4o-mini": (0.15, 0.60), "gpt-4o": (2.50, 10.00),
-    "gpt-5-mini": (0.25, 2.00), "gpt-5": (1.25, 10.00),
-}
+# preços por modelo: a fonte única é vagas/budget.py (página oficial da OpenAI); aqui só (entrada, saída) para a tela "IA e custos"
+from .budget import PRICES as _BUDGET_PRICES
+PRICES = {m: (v[0], v[2]) for m, v in _BUDGET_PRICES.items()}
 
 
 def _atomic_write(path: Path, text: str) -> None:
@@ -74,7 +73,9 @@ class Data:
     def overview(self) -> dict:
         c = self.db.conn
         today = date.today().isoformat()
-        jobs = [_job(r) for r in c.execute("SELECT * FROM jobs").fetchall()]
+        # sem a descrição: com milhares de vagas, carregar o texto de todas deixava o painel lento (0,8 s, picos de 18 s)
+        jobs = [_job(r) for r in c.execute("SELECT id, status, discovered_at, attempts, ats, source, apply_type, title, company, reason, "
+                                           "classification FROM jobs").fetchall()]
         apps = [dict(r) for r in c.execute("SELECT * FROM applications ORDER BY applied_at DESC").fetchall()]
         by_status = Counter(j["status"] for j in jobs)
         apps_today = [a for a in apps if (a["applied_at"] or "")[:10] == today]
@@ -126,6 +127,11 @@ class Data:
             "ticks": ticks, "days": days, "per_day": per_day, "reasons": reasons.most_common(12), "stacks": stacks.most_common(14),
             "ats": {k: dict(v) for k, v in sorted(ats.items(), key=lambda x: -sum(x[1].values()))},
             "last_discovery": self.db.kv_get("last_discovery"), "running": running,
+            # saudação da Visão do dia: primeiro nome (perfil em memória) e a próxima entrevista marcada
+            "first_name": ((self.profile().get("personal") or {}).get("first_name") or ""),
+            "next_interview": next((dict(r) for r in c.execute(
+                "SELECT id, company, title, scheduled_at FROM interviews WHERE status='aberta' AND COALESCE(scheduled_at,'')>=? "
+                "ORDER BY scheduled_at LIMIT 1", (today,)).fetchall()), None),
             "active_hours": list(self.s.limits.active_hours),
             # funil das vagas encontradas hoje: mostra onde o volume se perde (descartes por critério x falhas)
             "funnel": dict(Counter(j["status"] for j in jobs if (j["discovered_at"] or "")[:10] == today)),
@@ -139,8 +145,8 @@ class Data:
         return {k: {"pid": v.get("pid"), "stopping": bool(v.get("stopping"))} for k, v in running_tasks().items() if k != "dashboard"}
 
     def _cost(self, model: str, p: int | None, c: int | None) -> float:
-        pi, po = PRICES.get(model or "", (0.4, 1.6))
-        return ((p or 0) * pi + (c or 0) * po) / 1_000_000
+        from .budget import call_cost_usd
+        return call_cost_usd(model, p or 0, c or 0)
 
     # ---------- vagas ----------
     def jobs(self, status: str | None, q: str | None, limit: int = 300, today_only: bool = False) -> list[dict]:
@@ -295,6 +301,36 @@ class Data:
     def events(self, limit: int = 200) -> list[dict]:
         rows = self.db.conn.execute("SELECT e.at, e.level, e.job_id, e.message, j.title, j.company FROM events e LEFT JOIN jobs j ON j.id=e.job_id ORDER BY e.id DESC LIMIT ?", (limit,)).fetchall()
         return [dict(r) for r in rows]
+
+    _profile_cache: tuple = ((), {})
+
+    def profile(self) -> dict:
+        """Perfil carregado como no bot (para o treino de entrevistas). Ler leva ~1,8 s (junta o pool de cursos), então fica
+        em memória e só é relido quando o profile.yaml ou o courses.yaml mudam."""
+        try:
+            from .resume.profile import load_profile
+            if not self.s.profile_path.exists():
+                return {}
+            stamp = tuple(p.stat().st_mtime for p in (self.s.profile_path, CONFIG_DIR / "courses.yaml") if p.exists())
+            if Data._profile_cache[0] != stamp:
+                Data._profile_cache = (stamp, load_profile(self.s.profile_path))
+            return Data._profile_cache[1]
+        except Exception:
+            return {}
+
+    def counts(self) -> dict:
+        """Contadores do menu (atualizados a cada 30 s em qualquer tela): só agregados em SQL, sem carregar vagas."""
+        c, today = self.db.conn, date.today().isoformat()
+        st = dict(c.execute("SELECT status, COUNT(*) FROM jobs GROUP BY status").fetchall())
+        return {
+            "kpi": {"pending": len(self.db.pending_questions()),
+                    "responses_todo": c.execute("SELECT COUNT(*) FROM email_responses WHERE COALESCE(action,'')<>'' AND done=0").fetchone()[0],
+                    "applied_total": c.execute("SELECT COUNT(*) FROM applications").fetchone()[0],
+                    "queued": st.get("queued", 0) + st.get("new", 0),
+                    "skipped_today": c.execute("SELECT COUNT(*) FROM jobs WHERE status='skipped' AND substr(discovered_at,1,10)=?", (today,)).fetchone()[0],
+                    "interviews_open": c.execute("SELECT COUNT(*) FROM interviews WHERE status='aberta'").fetchone()[0]},
+            "running": self._running(), "active_hours": list(self.s.limits.active_hours), "last_discovery": self.db.kv_get("last_discovery"),
+        }
 
     def settings(self) -> dict:
         s = self.s
@@ -520,6 +556,9 @@ def recent_logs(limit: int = 15) -> list[dict]:
 
 def serve(settings: Settings, port: int = 8765) -> None:
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading as _th
+    # o perfil leva ~2 s para carregar (pool de cursos): lê em segundo plano para a 1ª entrevista abrir na hora
+    _th.Thread(target=lambda: Data(settings).profile(), name="perfil", daemon=True).start()
 
     class H(BaseHTTPRequestHandler):
         def _json(self, obj, code=200):
@@ -555,12 +594,23 @@ def serve(settings: Settings, port: int = 8765) -> None:
             try:
                 if u.path in ("/", "/index.html"): return self._file(STATIC / "index.html", "text/html; charset=utf-8")
                 if u.path == "/api/overview": return self._json(data.overview())
+                if u.path == "/api/counts": return self._json(data.counts())
                 if u.path == "/api/jobs": return self._json(data.jobs(qs.get("status"), qs.get("q"), int(qs.get("limit", 300)), qs.get("today") == "1"))
                 if u.path.startswith("/api/job/"):
                     j = data.job(unquote(u.path[len("/api/job/"):])); return self._json(j) if j else self._json({"error": "não encontrada"}, 404)
                 if u.path == "/api/applications": return self._json(data.applications())
                 if u.path == "/api/pending": return self._json(data.pending())
                 if u.path == "/api/responses": return self._json(data.responses())
+                if u.path == "/api/interviews":
+                    from . import interview
+                    return self._json({"items": interview.list_interviews(data.db)})
+                if u.path == "/api/interview":
+                    from . import interview
+                    iv = interview.get(data.db, int(qs.get("id", 0)), data.profile())
+                    if iv:   # opções de modelo da preparação, com custo estimado e saldo do teto do mês
+                        iv["prep_options"] = interview.prep_models(data.s)
+                        iv["budget"] = interview.budget_left(data.db, data.s)
+                    return self._json(iv) if iv else self._json({"error": "entrevista não encontrada"}, 404)
                 if u.path == "/api/courses": return self._json(data.courses())
                 if u.path == "/api/llm": return self._json(data.llm())
                 if u.path == "/api/events": return self._json(data.events(int(qs.get("limit", 200))))
@@ -600,6 +650,29 @@ def serve(settings: Settings, port: int = 8765) -> None:
                     data.dismiss_pending(int(payload["id"]), bool(payload.get("skip_job"))); return self._json({"ok": True})
                 if u.path == "/api/response/done":
                     data.set_response_done(int(payload["id"]), bool(payload.get("done", True))); return self._json({"ok": True})
+                if u.path == "/api/interview/new":
+                    # caixa de conversa da tela Entrevistas: mensagem do recrutador ou "empresa, vaga, quando"
+                    from . import interview
+                    text = str(payload.get("text") or "").strip()
+                    if len(text) < 3:
+                        return self._json({"error": "escreva a empresa e a vaga, ou cole a mensagem do recrutador"}, 400)
+                    return self._json({"id": interview.create_from_text(data.db, text)})
+                if u.path == "/api/interview/update":
+                    from . import interview
+                    interview.update(data.db, int(payload["id"]), payload); return self._json({"ok": True})
+                if u.path == "/api/interview/prep":
+                    # preparação por IA (opcional): só fatos do perfil, respeita o teto mensal
+                    from . import interview
+                    from .llm import LLM
+                    model = str(payload.get("model") or "").strip() or data.s.llm.cheap_model
+                    if model not in data.s.llm.prep_models and model != data.s.llm.cheap_model:
+                        return self._json({"error": f"modelo não permitido: {model} (lista em settings.yaml, llm.prep_models)"}, 400)
+                    try:
+                        res = interview.make_prep(data.db, int(payload["id"]), LLM(data.s.llm, data.db), data.profile(), model=model)
+                    except Exception as ex:
+                        return self._json({"error": f"IA indisponível ({type(ex).__name__}: {str(ex)[:120]})"}, 400)
+                    res["budget"] = interview.budget_left(data.db, data.s)
+                    return self._json(res)
                 if u.path == "/api/response/send":
                     # resposta ao recrutador: só sai com este clique (ou o botão "Enviar" do Telegram)
                     from . import nextsteps

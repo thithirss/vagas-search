@@ -144,6 +144,24 @@ CREATE TABLE IF NOT EXISTS email_responses (
   done        INTEGER DEFAULT 0,             -- ação já feita (marcada no painel)
   created_at  TEXT
 );
+
+-- entrevistas e o treino de cada uma (vagas/interview.py; tela "Entrevistas" do painel)
+CREATE TABLE IF NOT EXISTS interviews (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id       TEXT,                         -- vaga do banco, quando achada
+  response_id  INTEGER UNIQUE,               -- e-mail de convite que criou a entrevista (email_responses.id)
+  company      TEXT,
+  title        TEXT,
+  scheduled_at TEXT,                         -- data/hora (texto livre ou ISO)
+  mode         TEXT,                         -- remoto | presencial | híbrido | WhatsApp
+  salary       TEXT,
+  location     TEXT,
+  description  TEXT,                         -- mensagem do recrutador / descrição da vaga
+  notes        TEXT,
+  prep         TEXT,                         -- preparação gerada por IA (opcional, botão no painel)
+  status       TEXT DEFAULT 'aberta',        -- aberta | feita | arquivada
+  created_at   TEXT
+);
 """
 
 
@@ -215,6 +233,11 @@ class DB:
                     "reminded", "auto_state"):
             if col not in cols:
                 self.conn.execute(f"ALTER TABLE email_responses ADD COLUMN {col} TEXT")
+        # entrevistas: qual modelo gerou a preparação e quanto custou de verdade (tela Entrevistas)
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(interviews)")}
+        for col in ("prep_model", "prep_cost"):
+            if col not in cols:
+                self.conn.execute(f"ALTER TABLE interviews ADD COLUMN {col} TEXT")
         self.conn.commit()
 
     # ---------- jobs ----------

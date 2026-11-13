@@ -159,6 +159,11 @@ class BrowserCfg(BaseModel):
 class LLMCfg(BaseModel):
     cheap_model: str = "gpt-4.1-mini"
     smart_model: str = "gpt-4.1"
+    # modelos que "pensam antes de responder" (GPT-5/GPT-6): esforço de raciocínio pedido ("low" = barato e rápido;
+    # "" = padrão do modelo). Quem não aceita o parâmetro é lembrado e chamado sem ele.
+    reasoning_effort: str = "low"
+    # modelos oferecidos na preparação de entrevista (tela Entrevistas), do mais barato ao mais caro
+    prep_models: list[str] = Field(default_factory=lambda: ["gpt-6-luna", "gpt-4.1-mini", "gpt-6.1-terra", "gpt-4.1", "gpt-6.1-sol", "gpt-6-astra"])
     min_answer_confidence: float = 0.6
     always_ask_topics: list[str] = Field(default_factory=list)
     # Teto de gasto com IA. 0 = sem teto. O freio degrada em vez de quebrar: sem orçamento,

@@ -13,8 +13,23 @@ from .db import DB
 
 
 def _supports_temperature(model: str) -> bool:
+    # só a família gpt-4/3.5 aceita temperatura; GPT-5/GPT-6/o* recusam o parâmetro (sondado em 13/11/2026)
     m = model.lower()
-    return not (m.startswith("gpt-5") or m.startswith("o1") or m.startswith("o3") or m.startswith("o4"))
+    return m.startswith(("gpt-4", "gpt-3.5"))
+
+
+def _is_reasoning(model: str) -> bool:
+    """Modelos que "pensam antes de responder": o raciocínio é cobrado como saída e conta DENTRO do
+    max_completion_tokens. Com o limite apertado de antes (120 tokens na leitura de e-mail) a resposta vinha vazia."""
+    m = model.lower()
+    return m.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
+
+
+REASONING_HEADROOM = 2000   # tokens extras de limite para o raciocínio não comer a resposta
+_NO_EFFORT: set[str] = set()   # modelos que recusaram reasoning_effort nesta execução
+# conta sem acesso ao modelo novo: equivalente antigo (mesma função, um pouco pior e mais caro)
+FALLBACK_MODEL = {"gpt-6-luna": "gpt-4.1-mini", "gpt-6.1-terra": "gpt-4.1", "gpt-6.1-sol": "gpt-4.1", "gpt-6-sol": "gpt-4.1",
+                  "gpt-6-astra": "gpt-4.1", "gpt-5.6-luna": "gpt-4.1-mini"}
 
 
 def _log_call(purpose: str, model: str, system: str, user: str, pin: int, pout: int, cached: int) -> None:
@@ -60,8 +75,12 @@ class LLM:
         )
         if temperature is not None and _supports_temperature(model):
             kw["temperature"] = temperature
+        reasoning = _is_reasoning(model)
         if max_tokens:
-            kw["max_completion_tokens"] = max_tokens
+            kw["max_completion_tokens"] = max_tokens + (REASONING_HEADROOM if reasoning else 0)
+        effort = (getattr(self.cfg, "reasoning_effort", "") or "").strip()
+        if reasoning and effort and model not in _NO_EFFORT:
+            kw["reasoning_effort"] = effort   # tarefas do bot são simples: raciocínio curto = mais barato e rápido
         if self.budget is not None and not self.budget.allows(purpose):
             raise BudgetExceeded(self.budget.why_blocked(purpose))
         last_err: Exception | None = None
@@ -82,6 +101,19 @@ class LLM:
                 kw["messages"].append({"role": "user", "content": "Responda SOMENTE com um JSON válido."})
             except Exception as e:  # rate limit / rede
                 msg = str(e)
+                if ("model_not_found" in msg or "does not exist" in msg) and kw["model"] in FALLBACK_MODEL:
+                    # chave sem acesso ao modelo novo (clone de outra pessoa): cai no equivalente antigo e segue
+                    old = kw["model"]; kw["model"] = model = FALLBACK_MODEL[old]
+                    kw.pop("reasoning_effort", None)
+                    if temperature is not None and _supports_temperature(model):
+                        kw["temperature"] = temperature
+                    if max_tokens:
+                        kw["max_completion_tokens"] = max_tokens + (REASONING_HEADROOM if _is_reasoning(model) else 0)
+                    continue
+                if "reasoning_effort" in msg and "reasoning_effort" in kw:
+                    # modelo que não aceita o ajuste de esforço: lembra e repete sem ele (não conta como tentativa)
+                    _NO_EFFORT.add(model); kw.pop("reasoning_effort", None)
+                    continue
                 if "insufficient_quota" in msg or "credit_balance_exhausted" in msg:
                     # créditos da OpenAI acabaram: é orçamento esgotado, não erro transitório.
                     # Sem retentar (eram 3 tentativas com espera) e o chamador cai no caminho sem IA.

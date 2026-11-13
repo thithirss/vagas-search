@@ -171,8 +171,14 @@ browser:
   slow_mo_ms: 0
 
 llm:
-  cheap_model: gpt-4.1-mini     # classificação, respostas de formulário
-  smart_model: gpt-4.1          # currículo adaptado
+  # Trocados em 13/11/2026 depois de teste lado a lado em dados reais (triagem de 25 vagas, 24 perguntas de formulário,
+  # 4 currículos): gpt-6-luna decide igual/melhor que o gpt-4.1-mini por 1/2 a 1/3 do custo; gpt-6.1-terra não inventou
+  # tecnologia nos bullets (0 cortes da trava contra 5-6 do gpt-4.1) e custa 40% menos. Para voltar: gpt-4.1-mini / gpt-4.1.
+  cheap_model: gpt-6-luna       # classificação, respostas de formulário, e-mails, cursos
+  smart_model: gpt-6.1-terra    # currículo adaptado, importação de perfil
+  reasoning_effort: low         # modelos que "pensam": raciocínio curto (mais barato e rápido); "" = padrão do modelo
+  # modelos oferecidos na preparação de entrevista (tela Entrevistas), com custo estimado na própria tela
+  prep_models: [gpt-6-luna, gpt-4.1-mini, gpt-6.1-terra, gpt-4.1, gpt-6.1-sol, gpt-6-astra]
   # Abaixo desta confiança a resposta do LLM vira pergunta para você (modo interativo) ou pendência
   min_answer_confidence: 0.6
   # Perguntas destes temas SEMPRE exigem resposta sua (uma vez; depois fica no banco de respostas)

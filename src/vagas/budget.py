@@ -10,25 +10,47 @@ from __future__ import annotations
 import time
 from datetime import date
 
-# US$ por 1 milhão de tokens (entrada, saída). Fonte: tabela pública da OpenAI.
-PRICES: dict[str, tuple[float, float]] = {
-    "gpt-4.1": (2.00, 8.00),
-    "gpt-4.1-mini": (0.40, 1.60),
-    "gpt-4.1-nano": (0.10, 0.40),
-    "gpt-4o": (2.50, 10.00),
-    "gpt-4o-mini": (0.15, 0.60),
+# US$ por 1 milhão de tokens: (entrada, entrada em cache, saída). Fonte: página oficial de preços da OpenAI
+# (developers.openai.com/api/docs/pricing, conferida em 13/11/2026, contexto até 272K). Nos modelos que "pensam",
+# o raciocínio já vem somado em completion_tokens e é cobrado como saída.
+PRICES: dict[str, tuple[float, float, float]] = {
+    "gpt-4.1": (2.00, 0.50, 8.00),
+    "gpt-4.1-mini": (0.40, 0.10, 1.60),
+    "gpt-4.1-nano": (0.10, 0.025, 0.40),
+    "gpt-4o": (2.50, 1.25, 10.00),
+    "gpt-4o-mini": (0.15, 0.075, 0.60),
+    "gpt-5-mini": (0.25, 0.025, 2.00),
+    "gpt-5-nano": (0.05, 0.005, 0.40),
+    "gpt-5.4": (2.50, 0.25, 15.00),
+    "gpt-5.4-mini": (0.75, 0.075, 4.50),
+    "gpt-5.4-nano": (0.20, 0.02, 1.25),
+    "gpt-5.5": (5.00, 0.50, 30.00),
+    "gpt-5.6-luna": (0.20, 0.02, 1.20),
+    "gpt-5.6-terra": (2.00, 0.20, 12.00),
+    "gpt-5.6-sol": (4.00, 0.40, 20.00),
+    "gpt-6-luna": (0.10, 0.01, 0.50),
+    "gpt-6-sol": (2.00, 0.20, 10.00),
+    "gpt-6-astra": (10.00, 1.00, 50.00),
+    "gpt-6.1-terra": (1.00, 0.05, 5.00),
+    "gpt-6.1-sol": (2.00, 0.10, 10.00),
 }
-DEFAULT_PRICE = (2.00, 8.00)   # desconhecido: assume o caro, para o freio errar a favor
+DEFAULT_PRICE = (10.00, 1.00, 50.00)   # desconhecido: assume o mais caro da tabela, para o freio errar a favor
 
 
-CACHED_INPUT_FACTOR = 0.25   # entrada em cache (prefixo repetido) custa 1/4 na família gpt-4.1
+def price(model: str) -> tuple[float, float, float]:
+    m = (model or "").strip()
+    if m in PRICES:
+        return PRICES[m]
+    # versão com data ("gpt-6.1-sol-2026-09-01") usa o preço do nome-base
+    base = next((k for k in sorted(PRICES, key=len, reverse=True) if m.startswith(k + "-")), None)
+    return PRICES[base] if base else DEFAULT_PRICE
 
 
 def call_cost_usd(model: str, prompt_tokens: int, completion_tokens: int, cached_tokens: int = 0) -> float:
-    pin, pout = PRICES.get((model or "").strip(), DEFAULT_PRICE)
+    pin, pcached, pout = price(model)
     cached = min(int(cached_tokens or 0), int(prompt_tokens or 0))
     fresh = int(prompt_tokens or 0) - cached
-    return fresh / 1e6 * pin + cached / 1e6 * pin * CACHED_INPUT_FACTOR + (completion_tokens or 0) / 1e6 * pout
+    return fresh / 1e6 * pin + cached / 1e6 * pcached + (completion_tokens or 0) / 1e6 * pout
 
 
 def month_key(d: date | None = None) -> str:

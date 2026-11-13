@@ -86,16 +86,32 @@ def _profile_brief(profile: dict) -> str:
                       ensure_ascii=False)[:5000]
 
 
-def make_prep(llm, profile: dict, r: dict) -> str:
-    out = llm.json(model=llm.cfg.cheap_model, purpose="prep_kit", temperature=0.3, max_tokens=900,
-                   system=("Você prepara um candidato para uma entrevista em 5 minutos de leitura. Português do Brasil, frases curtas. "
-                           "Use SÓ fatos do perfil dado; nunca invente experiência, número ou tecnologia. Responda JSON "
-                           '{"texto": "..."} com 4 blocos separados por linha em branco: "Sobre a vaga" (3 itens), '
-                           '"O que destacar de você" (3 itens tirados do perfil), "Perguntas prováveis" (5, cada uma com uma dica '
-                           'de resposta baseada no perfil) e "Para perguntar ao entrevistador" (2). Itens começam com "• ".'),
+PREP_SYSTEM = (
+    "Você é um mentor de carreira que prepara um desenvolvedor para uma entrevista. Português do Brasil, direto, sem clichês. "
+    "Use SÓ fatos do perfil dado; nunca invente experiência, número, empresa ou tecnologia. Quando a vaga pede algo que o perfil "
+    "não tem, diga isso e mostre como responder com honestidade, ligando ao que ele já domina. Responda JSON "
+    '{"texto": "..."} com estes blocos, separados por linha em branco, cada um com um título numa linha própria:\n'
+    "Sobre a vaga — 4 itens: o que a empresa provavelmente faz, o que o dia a dia da vaga parece envolver, o que mais pesa na seleção.\n"
+    "Seu ponto forte para esta vaga — 3 itens, cada um um fato do perfil e por que ele importa aqui.\n"
+    "Pontos de atenção — 2 a 3 itens: lacunas reais entre perfil e vaga e a frase honesta para cada uma.\n"
+    "Perguntas comportamentais — 5, cada uma com uma resposta-modelo curta EM PRIMEIRA PESSOA (situação, ação, resultado) usando fatos do perfil.\n"
+    "Perguntas técnicas — 5 sobre a stack da vaga, cada uma com os pontos que a resposta precisa ter.\n"
+    "Para perguntar ao entrevistador — 3.\n"
+    'Itens começam com "• "; resposta-modelo começa com "→ ".'
+)
+
+
+def make_prep(llm, profile: dict, r: dict, model: str | None = None) -> str:
+    """Preparação da entrevista. `model` vem da escolha na tela Entrevistas (padrão: o modelo barato do bot)."""
+    out = llm.json(model=model or llm.cfg.cheap_model, purpose="prep_kit", temperature=0.3, max_tokens=2600, system=PREP_SYSTEM,
                    user=(f"Empresa: {r.get('company')}\nVaga: {r.get('title')}\nEtapa: {inbox.KIND_LABEL.get(r.get('kind') or '', '')}\n"
-                         f"Descrição da vaga:\n{(r.get('description') or '')[:3500]}\n\nPerfil do candidato:\n{_profile_brief(profile)}"))
+                         f"Descrição da vaga e mensagens do recrutador:\n{(r.get('description') or '')[:5000]}\n\n"
+                         f"Perfil do candidato:\n{_profile_brief(profile)}"))
     return str(out.get("texto") or "").strip()
+
+
+# tokens típicos de uma preparação (medidos no teste de 13/11/2026; raciocínio incluído na saída)
+PREP_EST_IN, PREP_EST_OUT = 2200, 2400
 
 
 def make_reply_draft(llm, profile: dict, r: dict) -> str:

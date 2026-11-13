@@ -100,6 +100,29 @@ ele **para sem enviar**, avisa no Telegram com o link e guarda um retrato da tel
 Testes de raciocínio lógico, técnicos e entrevistas têm resposta certa ou medem a pessoa ao vivo e ficam com você: o bot só lista,
 mostra o prazo e lembra.
 
+## Entrevistas (treino dentro do painel)
+
+A tela **Entrevistas** do painel prepara você para cada entrevista, em cima da vaga:
+
+1. Na caixa "Qual entrevista vamos preparar?", cole a mensagem do recrutador ou escreva algo como
+   `Acme, Desenvolvedor Python, hoje 14h`. O bot acha a vaga no banco (só quando a **empresa** aparece no texto),
+   puxa salário, endereço, horário, modelo de trabalho e data, e mostra o que ele mesmo enviou naquela candidatura.
+   Convites de entrevista que chegam no e-mail viram entrevista sozinhos.
+2. Cada entrevista tem um treino montado **sem IA**:
+   - **Flashcards**: "Sobre você" gerado do seu `config/profile.yaml` (pitch, liderança, problema difícil, pretensão do
+     nível da vaga e uma resposta honesta para tecnologia que você ainda não domina), mais baralhos técnicos conforme a
+     stack da vaga (Python, ponte Laravel → Python, JavaScript, HTTP/SQL/Git). Marque **Sabia** ou **Revisar de novo**.
+   - **Simulado**: pergunta sorteada, cronômetro de 1 minuto, resposta-modelo e checklist do que não podia faltar.
+   - **Quiz**: múltipla escolha com explicação.
+   - **Roteiro**: pitch, pretensão, perguntas para fazer e checklist. O botão **Gerar preparação** usa IA (opcional,
+     respeita o teto) e só fatos do perfil: você **escolhe o modelo** na lista (lista em `llm.prep_models` do
+     `settings.yaml`), cada um com o custo estimado por preparação, um alerta colorido (verde econômico, amarelo,
+     vermelho caro) e quanto sobra do teto do mês. Depois de gerar, aparece o custo real e o modelo usado.
+   - **Vaga e anotações**: a descrição, as respostas enviadas no formulário e um campo para suas anotações.
+3. Depois da entrevista, marque **Já fiz a entrevista** ou **Arquivar**. O progresso dos cartões fica no navegador.
+
+Funciona para quem clonar: tudo vem do perfil de quem usa o bot; nada é inventado.
+
 ## Regras fixas (em código, não só em config)
 
 - **Só vagas recentes** (até 72h, `config.py: HARD_MAX_AGE_HOURS`) e **só remoto**, exceto presencial/híbrido nas cidades de `discovery.local_cities` (vazio = só remoto). O resto é descartado antes de qualquer chamada de IA.
@@ -226,6 +249,10 @@ Primeiros dias: rode com `--interactive` para alimentar o banco de respostas (pr
 - `apply`: `dry_run`, `pause_before_submit`, `min_fit_score` (0 = todas), `apply_once_per_company_days`, `max_attempts`.
 - `resume`: idioma (auto = idioma da vaga), adaptação por nível (júnior ⇒ menos experiências e bullets hands-on; **nunca** muda cargo/data; pode usar `title_alt` se você definir no perfil).
 - `llm`: modelos (`cheap_model` para classificar/responder, `smart_model` para o currículo), confiança mínima, temas que sempre exigem sua resposta.
+  O padrão é `gpt-6-luna` (triagem e formulários) e `gpt-6.1-terra` (currículo), com `reasoning_effort: low`: num teste
+  com vagas reais saíram iguais ou melhores que o `gpt-4.1-mini`/`gpt-4.1` e mais baratos (triagem ~3x, currículo ~40%,
+  e o terra quase não inventa tecnologia que a trava precisa cortar). Se a sua chave da OpenAI não tiver acesso a um
+  modelo novo, o bot cai sozinho no equivalente antigo (`llm.FALLBACK_MODEL`) — não precisa mudar nada.
 - `ats.known_hosts`: host → applier. `skip_hosts`: hosts que nem tentamos.
 
 ## Perfil mestre (`config/profile.yaml`)

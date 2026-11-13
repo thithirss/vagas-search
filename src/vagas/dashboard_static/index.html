@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2563eb">
+<meta name="theme-color" content="#3d5afe">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Vagas">
@@ -11,7 +11,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Ctext x='32' y='44' font-size='36' font-family='Arial' font-weight='700' fill='white' text-anchor='middle'%3EV%3C/text%3E%3C/svg%3E">
 <title>Vagas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   color-scheme: light;
@@ -285,6 +285,287 @@ dialog.confirm .acts { display: flex; justify-content: flex-end; gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .drawer, .scrim, .toast, .pill.on i, .skeleton { transition: none; animation: none; } }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent); outline-offset: 1px; }
+
+/* ---------- Entrevistas: agenda à esquerda, mesa de estudo à direita ---------- */
+.ivx [hidden] { display: none !important; }   /* display: grid/flex das classes não pode vencer o hidden */
+.ivx { grid-column: 1 / -1; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1000px) { .ivx { grid-template-columns: 290px minmax(0, 1fr); } }
+.ivx-side { display: grid; gap: 14px; min-width: 0; }
+@media (min-width: 1000px) { .ivx-side { position: sticky; top: 12px; } }
+.ivx-compose { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: grid; gap: 8px; }
+.ivx-compose label { font-weight: 600; font-size: 13px; }
+.ivx-compose textarea { width: 100%; min-height: 64px; max-height: 220px; resize: vertical; font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-s); padding: 9px 11px; }
+.ivx-compose .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.ivx-compose .tip { font-size: 12px; color: var(--ink-3); }
+.ivx-agenda { display: grid; gap: 4px; }
+.ivx-agenda h3 { font-size: 12px; font-weight: 600; color: var(--ink-3); margin: 6px 4px 2px; }
+.ivx-item { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 10px; align-items: center; text-align: left; width: 100%;
+  background: transparent; border: 1px solid transparent; border-radius: 12px; padding: 8px 8px; cursor: pointer; color: var(--ink); font: inherit; }
+.ivx-item:hover { background: var(--surface); border-color: var(--border); }
+.ivx-item[aria-current="true"] { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ivx-date { display: grid; place-items: center; height: 46px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); line-height: 1.05; }
+.ivx-date b { font-size: 17px; font-variant-numeric: tabular-nums; } .ivx-date span { font-size: 10.5px; color: var(--ink-2); }
+.ivx-date.today { background: var(--accent); border-color: var(--accent); } .ivx-date.today b, .ivx-date.today span { color: var(--accent-ink); }
+.ivx-item .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ivx-item .what { font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ivx-item.past { opacity: .62; }
+@media (max-width: 999px) {
+  .ivx-agenda { grid-auto-flow: column; grid-auto-columns: minmax(220px, 72%); overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .ivx-agenda h3 { display: none; }
+  .ivx-item { background: var(--surface); border-color: var(--border); }
+}
+
+.ivx-main { min-width: 0; display: grid; gap: 14px; }
+.ivx-hero { display: grid; gap: 14px; padding: 4px 2px 0; }
+.ivx-hero .top { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: flex-end; justify-content: space-between; }
+.ivx-company { font-size: clamp(24px, 3.6vw, 32px); font-weight: 700; letter-spacing: -.02em; line-height: 1.1; margin: 0; text-wrap: balance; }
+.ivx-role { color: var(--ink-2); font-size: 15px; margin-top: 4px; }
+.ivx-clock { text-align: right; }
+.ivx-clock .when { font-weight: 600; } .ivx-clock .left { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ivx-clock.soon .left { color: var(--orange-ink); font-weight: 600; }
+.ivx-ready { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.ivx-ready .bar { height: 8px; background: var(--gray-soft); border-radius: 99px; overflow: hidden; }
+.ivx-ready .bar i { display: block; height: 100%; background: var(--green); border-radius: 99px; transition: width .4s ease; }
+.ivx-ready b { font-variant-numeric: tabular-nums; }
+.ivx-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 20px; margin: 0; padding: 14px 0; border-block: 1px solid var(--border); }
+.ivx-facts div { min-width: 0; }
+.ivx-facts dt { font-size: 11.5px; color: var(--ink-3); } .ivx-facts dd { margin: 2px 0 0; font-weight: 500; overflow-wrap: anywhere; }
+.ivx-hero .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.ivx-modes { display: flex; gap: 2px; padding: 3px; background: var(--gray-soft); border-radius: 12px; overflow-x: auto; scrollbar-width: none; }
+.ivx-modes button { flex: 1 0 auto; border: 0; background: transparent; color: var(--ink-2); font: 600 13.5px inherit; padding: 8px 14px; border-radius: 9px; cursor: pointer; }
+.ivx-modes button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+.ivx-desk { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: clamp(16px, 3vw, 28px); display: grid; gap: 16px; min-width: 0; }
+.ivx-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ivx-tools select { border: 1px solid var(--border-2); border-radius: var(--radius-s); padding: 6px 10px; background: var(--surface); color: var(--ink); font: inherit; }
+.ivx-tools .count { margin-left: auto; white-space: nowrap; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ivx-linkbtn { border: 0; background: none; color: var(--accent-strong); font: 500 13px inherit; cursor: pointer; padding: 6px 4px; }
+.ivx-linkbtn[aria-pressed="true"] { text-decoration: underline; text-underline-offset: 3px; }
+.ivx-deck { font-size: 12px; color: var(--accent-strong); font-weight: 600; }
+.ivx-q { font-size: clamp(19px, 2.6vw, 24px); font-weight: 650; line-height: 1.3; letter-spacing: -.01em; text-wrap: balance; max-width: 34em; }
+.ivx-a { border-top: 1px dashed var(--border-2); padding-top: 14px; line-height: 1.6; white-space: pre-line; max-width: 62ch; }
+.ivx-a b { color: var(--accent-strong); }
+.ivx-a pre, .ivx-code { font-family: "JetBrains Mono", Consolas, monospace; font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; overflow-x: auto; white-space: pre; margin: 6px 0; }
+.ivx-a code { font-family: "JetBrains Mono", Consolas, monospace; font-size: 12.5px; background: var(--surface-2); border-radius: 5px; padding: 1px 5px; }
+.ivx-big { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ivx-big .btn { justify-content: center; padding: 12px; font-size: 14px; }
+.ivx-reveal { justify-self: start; }
+.btn.good { background: var(--green-soft); color: var(--green-ink); border-color: transparent; }
+.btn.again { background: var(--orange-soft); color: var(--orange-ink); border-color: transparent; }
+.ivx-keys { font-size: 12px; color: var(--ink-3); } .ivx-keys kbd { font: 600 11px inherit; border: 1px solid var(--border-2); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; }
+.ivx-progress { height: 4px; background: var(--gray-soft); border-radius: 99px; overflow: hidden; } .ivx-progress i { display: block; height: 100%; background: var(--accent); transition: width .3s ease; }
+
+.ivx-timer { font-size: 40px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.ivx-timer.late { color: var(--red); }
+.ivx-modelwrap { display: grid; gap: 12px; }
+.ivx-model { background: var(--accent-soft); border-radius: 14px; padding: 14px 16px; line-height: 1.6; white-space: pre-line; }
+.ivx-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; } .ivx-checks label { display: flex; gap: 10px; cursor: pointer; align-items: flex-start; }
+.ivx-checks input { accent-color: var(--accent); width: 18px; height: 18px; margin-top: 1px; flex: none; }
+
+.ivx-opts { display: grid; gap: 8px; }
+.ivx-opt { text-align: left; border: 1px solid var(--border-2); background: var(--surface); color: var(--ink); border-radius: 12px; padding: 12px 14px; font: inherit; cursor: pointer; }
+.ivx-opt:hover { border-color: var(--accent); } .ivx-opt.right { background: var(--green-soft); border-color: var(--green); } .ivx-opt.wrong { background: var(--red-soft); border-color: var(--red); }
+.ivx-opt:disabled { cursor: default; }
+.ivx-exp { border-left: 3px solid var(--accent); padding: 6px 12px; color: var(--ink-2); }
+
+.ivx-plan { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.ivx-plan section { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.ivx-plan h3 { margin: 0; font-size: 14px; }
+.ivx-plan .wide { grid-column: 1 / -1; }
+.ivx-say { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; line-height: 1.6; white-space: pre-line; }
+.ivx-plan ol, .ivx-plan ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.ivx-desc { white-space: pre-wrap; max-height: 340px; overflow: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.55; }
+.ivx-form { display: grid; gap: 8px; } .ivx-form label { font-size: 12.5px; color: var(--ink-2); }
+.ivx-form input, .ivx-form textarea { width: 100%; font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-s); padding: 8px 10px; }
+.ivx-form textarea { min-height: 90px; resize: vertical; }
+.ivx-empty { padding: 32px 8px; text-align: center; color: var(--ink-2); display: grid; gap: 6px; }
+.ivx-empty b { color: var(--ink); font-size: 16px; }
+@media (prefers-reduced-motion: reduce) { .ivx-ready .bar i, .ivx-progress i { transition: none; } }
+
+/* ================== Tema "claro e vibrante" (2026-11-13) ==================
+   Camada por cima dos estilos de estrutura: mesmos nomes de classe, outra identidade.
+   Cor por assunto: verde = enviadas · laranja = retornos · rosa = pendências · roxo = entrevistas · azul = ação. */
+:root {
+  --bg: #f5f3ff; --surface: #ffffff; --surface-2: #f8f7fd; --border: #ebe8f6; --border-2: #d9d4ee;
+  --ink: #1c1633; --ink-2: #5b5574; --ink-3: #9a94b0;
+  --accent: #3d5afe; --accent-ink: #ffffff; --accent-soft: #e9edff; --accent-strong: #2a44e0;
+  --green: #12b76a; --green-soft: #dcfaea; --green-ink: #067a46;
+  --orange: #ff8a00; --orange-soft: #fff0dc; --orange-ink: #b45309;
+  --red: #f0447a; --red-soft: #ffe4ee; --red-ink: #c21c56;
+  --pink: #f0447a; --pink-soft: #ffe4ee; --pink-ink: #c21c56;
+  --purple: #8b5cf6; --purple-soft: #efe7ff; --purple-ink: #6d28d9;
+  --gray-soft: #f0eef8; --chart-1: #3d5afe; --chart-2: #c7cffd;
+  --shadow: 0 1px 2px rgba(40, 24, 110, .05), 0 6px 18px -8px rgba(40, 24, 110, .12);
+  --shadow-lg: 0 24px 60px -18px rgba(40, 24, 110, .35);
+  --radius: 22px; --radius-s: 12px; --sidebar: 252px;
+  --font: "Plus Jakarta Sans", Inter, "Segoe UI", system-ui, sans-serif;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f0b1f; --surface: #1a1530; --surface-2: #221c3b; --border: #2c2548; --border-2: #3b3360;
+  --ink: #f3f0ff; --ink-2: #c3bce0; --ink-3: #8a82ab;
+  --accent: #6b83ff; --accent-soft: #232a5e; --accent-strong: #9aabff;
+  --green-soft: #0d3326; --green-ink: #6ee7b0; --orange-soft: #3b2410; --orange-ink: #ffc069;
+  --red-soft: #3d1426; --red-ink: #ff8fb4; --pink-soft: #3d1426; --pink-ink: #ff8fb4; --purple-soft: #2b1d52; --purple-ink: #c4b0ff;
+  --gray-soft: #241e40; --chart-2: #3a4290;
+  --shadow: 0 1px 0 rgba(255, 255, 255, .03), 0 8px 24px -10px rgba(0, 0, 0, .6); --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, .8); } }
+:root[data-theme="dark"] {
+  --bg: #0f0b1f; --surface: #1a1530; --surface-2: #221c3b; --border: #2c2548; --border-2: #3b3360;
+  --ink: #f3f0ff; --ink-2: #c3bce0; --ink-3: #8a82ab;
+  --accent: #6b83ff; --accent-soft: #232a5e; --accent-strong: #9aabff;
+  --green-soft: #0d3326; --green-ink: #6ee7b0; --orange-soft: #3b2410; --orange-ink: #ffc069;
+  --red-soft: #3d1426; --red-ink: #ff8fb4; --pink-soft: #3d1426; --pink-ink: #ff8fb4; --purple-soft: #2b1d52; --purple-ink: #c4b0ff;
+  --gray-soft: #241e40; --chart-2: #3a4290;
+  --shadow: 0 1px 0 rgba(255, 255, 255, .03), 0 8px 24px -10px rgba(0, 0, 0, .6); --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, .8); }
+
+body { font-family: var(--font); font-size: 14.5px; letter-spacing: -.005em;
+  background: radial-gradient(1200px 600px at 100% -10%, color-mix(in srgb, var(--purple) 10%, transparent), transparent 60%),
+              radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%), var(--bg);
+  background-attachment: fixed; }
+button, input, select, textarea { font-family: var(--font); }
+a { color: var(--accent-strong); }
+
+/* menu lateral flutuante */
+.app { grid-template-columns: calc(var(--sidebar) + 16px) 1fr; }
+.side { margin: 12px 0 12px 12px; height: calc(100vh - 24px); top: 12px; border: 1px solid var(--border); border-radius: 26px; background: var(--surface); box-shadow: var(--shadow); padding: 18px 12px; }
+.brand { padding: 2px 6px 10px; }
+.brand .logo { width: 38px; height: 38px; border-radius: 13px; font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--purple)); box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent); }
+.brand b { font-size: 16.5px; font-weight: 800; letter-spacing: -.02em; }
+.nav h6 { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 700; color: var(--ink-3); margin: 16px 12px 6px; }
+.nav a { gap: 10px; justify-content: flex-start; padding: 9px 12px; border-radius: 14px; color: var(--ink-2); font-weight: 600; transition: background .18s var(--ease), color .18s, transform .18s var(--ease); }
+.nav a .ico { width: 19px; height: 19px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.nav a .n { margin-left: auto; font-weight: 700; }
+.nav a:hover { background: var(--surface-2); transform: translateX(2px); }
+.nav a.active { background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 20px -10px color-mix(in srgb, var(--accent) 80%, transparent); }
+.nav a.active .ico { opacity: 1; }
+.nav a.active .n { background: rgba(255, 255, 255, .25); color: #fff; }
+.nav a .n.hot { background: var(--orange-soft); color: var(--orange-ink); }
+.nav a[data-view="pendencias"] .n.hot { background: var(--pink-soft); color: var(--pink-ink); }
+.nav a[data-view="entrevistas"] .n.hot { background: var(--purple-soft); color: var(--purple-ink); }
+.side .foot { border-top: 1px dashed var(--border-2); }
+.theme { border-radius: 999px; padding: 5px 12px; font-weight: 600; }
+
+/* topo */
+.topbar { background: transparent; backdrop-filter: none; border-bottom: 0; padding: 22px 30px 8px; position: relative; }
+.topbar h1 { font-size: 28px; font-weight: 800; letter-spacing: -.03em; }
+.topbar .sub { font-size: 13.5px; color: var(--ink-2); margin-top: 3px; }
+.content { padding: 14px 30px 70px; gap: 18px; }
+
+/* superfícies */
+.panel { border-radius: var(--radius); padding: 20px 22px; border-color: var(--border); box-shadow: var(--shadow); }
+.panel h2 { font-size: 16px; font-weight: 800; letter-spacing: -.015em; }
+.panel h2 small { font-weight: 500; }
+.card { border-radius: 18px; transition: transform .2s var(--ease), box-shadow .2s var(--ease); }
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+
+/* números do dia: cor por assunto, levantam ao passar o mouse */
+.kpis { gap: 14px; }
+.kpi { position: relative; overflow: hidden; border-radius: 20px; padding: 16px 18px; border: 0; box-shadow: var(--shadow); transition: transform .22s var(--ease), box-shadow .22s var(--ease); }
+.kpi::before { content: ""; position: absolute; inset: 0; background: var(--kpi-soft, var(--accent-soft)); opacity: .9; z-index: 0; }
+.kpi > * { position: relative; z-index: 1; }
+.kpi .l { color: var(--kpi-ink, var(--accent-strong)); font-weight: 700; font-size: 12.5px; }
+.kpi .v { font-size: 32px; font-weight: 800; letter-spacing: -.04em; color: var(--kpi-ink, var(--accent-strong)); }
+.kpi.clickable:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.kpi[data-go="fila"] { --kpi-soft: var(--accent-soft); --kpi-ink: var(--accent-strong); }
+.kpi[data-go="pendencias"] { --kpi-soft: var(--pink-soft); --kpi-ink: var(--pink-ink); }
+.kpi[data-go="retornos"] { --kpi-soft: var(--orange-soft); --kpi-ink: var(--orange-ink); }
+.kpi.k-found { --kpi-soft: var(--purple-soft); --kpi-ink: var(--purple-ink); }
+.kpi.k-ai { --kpi-soft: var(--gray-soft); --kpi-ink: var(--ink); }
+.kpi.warn .v, .kpi.bad .v { color: var(--kpi-ink); }
+.meter { background: color-mix(in srgb, var(--kpi-ink, var(--accent)) 15%, transparent); } .meter i { background: var(--kpi-ink, var(--accent)); }
+
+/* saudação + destaque do dia */
+.hello { grid-column: span 12; display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; justify-content: space-between; }
+.hello h2 { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -.03em; }
+.hello p { margin: 4px 0 0; color: var(--ink-2); }
+.next-iv { display: inline-flex; align-items: center; gap: 12px; padding: 10px 16px 10px 10px; border-radius: 999px; background: var(--purple-soft); color: var(--purple-ink); font-weight: 700; text-decoration: none; transition: transform .2s var(--ease), box-shadow .2s; }
+.next-iv:hover { text-decoration: none; transform: translateY(-2px); box-shadow: 0 12px 26px -12px color-mix(in srgb, var(--purple) 80%, transparent); }
+.next-iv .d { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--purple); color: #fff; font-size: 12px; line-height: 1; text-align: center; }
+.next-iv small { display: block; font-weight: 600; opacity: .8; font-size: 12px; }
+.hero-main { border-radius: 26px; background: linear-gradient(140deg, #12b76a 0%, #0ea5a4 55%, #3d5afe 120%); box-shadow: 0 22px 44px -20px rgba(18, 183, 106, .7); }
+.hero-main::after { width: 220px; height: 220px; right: -60px; top: -70px; background: rgba(255, 255, 255, .14); }
+.hero-main::before { content: ""; position: absolute; left: -40px; bottom: -80px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255, 255, 255, .08); }
+.hero-main .big { font-size: 64px; font-weight: 800; letter-spacing: -.05em; }
+
+/* linha do dia, barras, gráfico */
+.tick.applied i { background: var(--green); } .tick.failed i { background: var(--red); } .tick.pending i { background: var(--orange); }
+.dayline .tick i { transition: transform .15s var(--ease); } .dayline .tick:hover i { transform: scale(1.5); }
+.brow .tr, .fstep .tr { border-radius: 99px; } .brow .tr i { border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--purple)); }
+.fstep .tr i { border-radius: 99px; }
+.day .c { border-radius: 6px 6px 2px 2px; transition: height .6s var(--ease); } .day .c.a { background: linear-gradient(180deg, var(--accent), var(--purple)); }
+.recent a { border-radius: 14px; transition: background .15s, transform .15s var(--ease); } .recent a:hover { transform: translateX(3px); }
+
+/* tabelas */
+.table-wrap { border-radius: 18px; border-color: var(--border); background: var(--surface); }
+th { background: var(--surface-2); font-weight: 700; color: var(--ink-3); }
+tr.row:hover td { background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
+.chip { border: 0; background: var(--gray-soft); font-weight: 600; }
+.st { font-weight: 700; padding: 3px 10px; }
+.st.applied, .st.done { background: var(--green-soft); color: var(--green-ink); }
+.st.failed { background: var(--pink-soft); color: var(--pink-ink); }
+.st.pending_question, .st.in_progress { background: var(--orange-soft); color: var(--orange-ink); }
+.fit i b { background: linear-gradient(90deg, var(--accent), var(--purple)); }
+
+/* botões: afundam ao clicar */
+.btn { border-radius: 12px; padding: 8px 14px; font-weight: 700; border-color: var(--border-2); transition: transform .12s var(--ease), background .15s, box-shadow .15s; }
+.btn:active:not(:disabled) { transform: scale(.96); }
+.btn.primary { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, var(--purple))); box-shadow: 0 10px 20px -10px color-mix(in srgb, var(--accent) 90%, transparent); }
+.btn.primary:hover { filter: brightness(1.06); background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, var(--purple))); }
+.btn.danger { background: var(--pink-soft); color: var(--pink-ink); }
+.seg { border-radius: 12px; } .filters .btn.on { background: var(--ink); color: var(--surface); }
+.search, input.ans, select.ans { border-radius: 12px; }
+.search:focus { box-shadow: 0 0 0 4px var(--accent-soft); }
+.pill { font-weight: 700; } .pill.on { background: var(--green-soft); color: var(--green-ink); }
+.drawer { border-radius: 26px 0 0 26px; }
+dialog.confirm { border-radius: 24px; }
+.toast { border-radius: 14px; font-weight: 600; box-shadow: var(--shadow-lg); }
+.toast.err { background: var(--pink); }
+.skeleton { border-radius: 22px; }
+
+/* entrada das telas: um único momento orquestrado, em cascata */
+@keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }
+.content.enter > * { animation: rise .45s var(--ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
+
+/* Entrevistas no tema novo: roxo é a cor das entrevistas */
+.ivx-date.today { background: var(--purple); border-color: var(--purple); }
+.ivx-item[aria-current="true"] { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-soft); }
+.ivx-company { font-weight: 800; letter-spacing: -.035em; }
+.ivx-desk { border-radius: 26px; box-shadow: var(--shadow); }
+.ivx-modes { border-radius: 16px; } .ivx-modes button { border-radius: 12px; font-weight: 700; }
+.ivx-modes button[aria-selected="true"] { background: var(--purple); color: #fff; box-shadow: 0 8px 18px -10px var(--purple); }
+.ivx-ready .bar i { background: linear-gradient(90deg, var(--green), #0ea5a4); }
+.ivx-q { font-weight: 800; letter-spacing: -.02em; }
+.ivx-a { animation: rise .3s var(--ease) both; }
+.ivx-opt { border-radius: 14px; font-weight: 600; transition: transform .12s var(--ease), border-color .15s; } .ivx-opt:active { transform: scale(.98); }
+.ivx-compose { border-radius: 20px; box-shadow: var(--shadow); }
+
+/* celular */
+@media (max-width: 820px) {
+  .app { grid-template-columns: 1fr; }
+  .topbar { padding: calc(14px + env(safe-area-inset-top)) 16px 6px; } .topbar h1 { font-size: 24px; }
+  .content { padding: 10px 14px calc(100px + env(safe-area-inset-bottom)); gap: 14px; }
+  .panel { border-radius: 20px; }
+  .kpi .v { font-size: 26px; }
+  .hero-main .big { font-size: 52px; }
+  .tabbar { margin: 0 10px calc(8px + env(safe-area-inset-bottom)); left: 0; right: 0; border-radius: 22px; border: 1px solid var(--border); box-shadow: var(--shadow-lg); padding: 6px 4px; }
+  .tabbar .active { color: var(--accent); }
+  .tabbar .active svg { filter: drop-shadow(0 4px 8px color-mix(in srgb, var(--accent) 50%, transparent)); }
+  .tabbar .b { background: var(--accent); } .tabbar .b.hot { background: var(--orange); }
+  .sheet-more { border-radius: 26px 26px 0 0; }
+  .table-wrap tr { border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); border-color: var(--border); }
+}
+/* preparação por IA: escolha do modelo + alerta de custo (verde barato, laranja médio, rosa caro) */
+.ivx-ai-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ivx-ai-row select { flex: 1 1 260px; min-width: 0; border: 1px solid var(--border-2); border-radius: 12px; padding: 9px 12px; background: var(--surface); color: var(--ink); font: 600 13.5px var(--font); }
+.ivx-cost { border-radius: 14px; padding: 10px 14px; font-size: 13px; line-height: 1.5; transition: background .2s, color .2s; }
+.ivx-cost.low { background: var(--green-soft); color: var(--green-ink); }
+.ivx-cost.mid { background: var(--orange-soft); color: var(--orange-ink); }
+.ivx-cost.high { background: var(--pink-soft); color: var(--pink-ink); }
+@media (prefers-reduced-motion: reduce) {
+  .content.enter > *, .ivx-a { animation: none; }
+  .kpi, .card, .nav a, .btn, .next-iv, .recent a { transition: none; }
+}
 </style>
 </head>
 <body>
@@ -296,6 +577,7 @@ dialog.confirm .acts { display: flex; justify-content: flex-end; gap: 8px; }
       <a href="#/hoje" data-view="hoje">Visão do dia</a>
       <a href="#/pendencias" data-view="pendencias">Precisa de você <span class="n" id="n-pend"></span></a>
       <a href="#/retornos" data-view="retornos">Retornos <span class="n" id="n-ret"></span></a>
+      <a href="#/entrevistas" data-view="entrevistas">Entrevistas <span class="n" id="n-iv"></span></a>
       <h6>Vagas</h6>
       <a href="#/candidaturas" data-view="candidaturas">Enviadas <span class="n" id="n-apps"></span></a>
       <a href="#/fila" data-view="fila">Fila <span class="n" id="n-queue"></span></a>
@@ -332,6 +614,7 @@ dialog.confirm .acts { display: flex; justify-content: flex-end; gap: 8px; }
   <div class="st-line"><span id="m-run" class="pill off"><i></i>parado</span><span>última busca <b id="m-disc">—</b></span></div>
   <div class="grid">
     <a href="#/pendencias" data-view="pendencias"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Precisa de você<span class="b" id="m-pend"></span></a>
+    <a href="#/entrevistas" data-view="entrevistas"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>Entrevistas</a>
     <a href="#/execucao" data-view="execucao"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></svg>Execução e log</a>
     <a href="#/falhas" data-view="falhas"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Falhas</a>
     <a href="#/descartadas" data-view="descartadas"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Descartadas</a>
@@ -410,20 +693,27 @@ views.hoje = async () => {
     <div class="fnote">${skipped ? `${Math.round(skipped / found * 100)}% das vagas encontradas hoje ficaram fora dos seus critérios (veja "Por que descartou" abaixo).` : ''} ${waiting ? `${waiting} ainda vão ser tentadas.` : ''}</div>` : '<div class="empty">nenhuma vaga encontrada hoje ainda</div>';
   const recent = (o.recent_apps || []).map(a => `<a href="#" data-job="${esc(a.job_id)}"><span class="t">${a.today ? '<span class="dot"></span>' : ''}${esc(a.t.slice(a.today ? 6 : 0))}</span><span><div class="n">${esc(a.title)}</div><div class="c">${esc(a.company)}</div></span></a>`).join('') || '<div class="empty">nenhuma ainda</div>';
   const sentPct = Math.min(100, k.applied_today / Math.max(1, k.cap) * 100);
+  const hr = new Date().getHours(), hi = hr < 12 ? 'Bom dia' : hr < 18 ? 'Boa tarde' : 'Boa noite';
+  const ni = o.next_interview; let niHtml = '';
+  if (ni) { const w = ivWhen(ni.scheduled_at), dd = ivParse(ni.scheduled_at);
+    niHtml = `<a class="next-iv" href="#/entrevistas" data-iv-go="${ni.id}"><span class="d">${dd ? `${dd.getDate()}<br>${MESES[dd.getMonth()]}` : '?'}</span><span>${esc(ni.company)}<small>${esc(w.label)}${w.left ? ' · ' + esc(w.left) : ''} · treinar agora</small></span></a>`; }
+  const plural = (n, a, b) => n === 1 ? a : b;
   $('#content').innerHTML = `
+    <section class="hello"><div><h2>${hi}${o.first_name ? ', ' + esc(o.first_name) : ''}</h2>
+      <p>${k.applied_today ? `${k.applied_today} ${plural(k.applied_today, 'candidatura enviada', 'candidaturas enviadas')} hoje.` : 'Nenhuma candidatura enviada hoje ainda.'} ${k.responses_todo ? `${k.responses_todo} ${plural(k.responses_todo, 'retorno pede', 'retornos pedem')} sua ação.` : ''}</p></div>${niHtml}</section>
     <section class="hero">
-      <div class="hero-main"><div class="l">candidaturas enviadas hoje</div><div class="big">${k.applied_today}<small>de ${k.cap}</small></div>
+      <div class="hero-main"><div class="l">candidaturas enviadas hoje</div><div class="big" data-n="${k.applied_today}">${k.applied_today}<small>de ${k.cap}</small></div>
         <div class="bar"><i style="width:${sentPct}%"></i></div>
         <div class="meta"><span>📋 ${k.queued} na fila</span><span>📨 ${k.applied_total} no total</span>${(() => { const rn = Object.keys(o.running || {}); const zz = sleepingUntil(rn, o.active_hours); return rn.length ? (zz ? `<span>🌙 dormindo até ${esc(zz)}</span>` : '<span>🟢 rodando</span>') : '<span>⚪ parado</span>'; })()}</div></div>
       <div class="panel" style="margin:0"><h2>Funil de hoje <small>o que aconteceu com as ${found} vagas encontradas</small></h2>${funnel}</div>
     </section>
     <section class="kpis">
-      <div class="kpi clickable" data-go="fila"><div class="l">na fila</div><div class="v">${k.queued}</div></div>
-      <div class="kpi clickable ${k.pending ? 'warn' : ''}" data-go="pendencias"><div class="l">precisam de você</div><div class="v">${k.pending}</div></div>
-      <div class="kpi"><div class="l">encontradas hoje</div><div class="v">${k.found_today}</div></div>
-      <div class="kpi clickable ${k.responses_todo ? 'warn' : ''}" data-go="retornos"><div class="l">retornos positivos${k.responses_todo ? ` · ${k.responses_todo} pedem ação` : ''}</div><div class="v">${k.responses_positive}</div></div>
-      ${bud ? `<div class="kpi ${bud.used_pct >= 100 ? 'bad' : bud.used_pct >= 70 ? 'warn' : ''}"><div class="l">IA no mês · teto R$ ${bud.budget_brl.toFixed(0)}</div><div class="v">R$ ${bud.spent_brl.toFixed(2)}</div><div class="meter"><i style="width:${Math.min(100,bud.used_pct)}%;${bud.used_pct>=70?'background:var(--orange)':''}"></i></div></div>`
-             : `<div class="kpi"><div class="l">IA hoje</div><div class="v">US$ ${k.cost_today_usd.toFixed(2)}</div></div>`}
+      <div class="kpi clickable" data-go="fila"><div class="l">na fila</div><div class="v" data-n="${k.queued}">${k.queued}</div></div>
+      <div class="kpi clickable ${k.pending ? 'warn' : ''}" data-go="pendencias"><div class="l">precisam de você</div><div class="v" data-n="${k.pending}">${k.pending}</div></div>
+      <div class="kpi k-found"><div class="l">encontradas hoje</div><div class="v" data-n="${k.found_today}">${k.found_today}</div></div>
+      <div class="kpi clickable ${k.responses_todo ? 'warn' : ''}" data-go="retornos"><div class="l">retornos positivos${k.responses_todo ? ` · ${k.responses_todo} pedem ação` : ''}</div><div class="v" data-n="${k.responses_positive}">${k.responses_positive}</div></div>
+      ${bud ? `<div class="kpi k-ai ${bud.used_pct >= 100 ? 'bad' : bud.used_pct >= 70 ? 'warn' : ''}"><div class="l">IA no mês · teto R$ ${bud.budget_brl.toFixed(0)}</div><div class="v">R$ ${bud.spent_brl.toFixed(2)}</div><div class="meter"><i style="width:${Math.min(100,bud.used_pct)}%;${bud.used_pct>=70?'background:var(--orange)':''}"></i></div></div>`
+             : `<div class="kpi k-ai"><div class="l">IA hoje</div><div class="v">US$ ${k.cost_today_usd.toFixed(2)}</div></div>`}
     </section>
     <section class="panel span12"><h2>Ritmo do dia <small>janela ativa ${esc(h0)} – ${esc(h1)} · teto ${k.cap}/dia · LinkedIn ${k.caps.linkedin||'—'} · Indeed ${k.caps.indeed||'—'} · externas ${k.caps.external||'—'}</small></h2>
       <div class="dayline"><div class="axis"></div>${hours.join('')}${ticks}<span class="now" style="left:${pct(nowT)}%"></span></div>
@@ -436,6 +726,7 @@ views.hoje = async () => {
   $$('#content .tick').forEach(t => t.addEventListener('click', () => openJob(t.dataset.job)));
   $$('#content .recent a[data-job]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); openJob(a.dataset.job); }));
   $$('#content [data-go]').forEach(el => el.addEventListener('click', () => location.hash = '#/' + el.dataset.go));
+  $$('#content [data-iv-go]').forEach(a => a.addEventListener('click', () => { ivSel = +a.dataset.ivGo; ivMode = 'cards'; }));
   };
 };
 const bars = items => { const mx = Math.max(1, ...items.map(i=>i[1])); return `<div class="bars">${items.map(([l,v])=>`<div class="brow" title="${esc(l)}: ${v}"><span class="lb">${esc(l)}</span><span class="tr"><i style="width:${Math.max(2,v/mx*100)}%"></i></span><span class="vl">${v}</span></div>`).join('')}</div>`; };
@@ -572,6 +863,250 @@ views.retornos = async () => {
   $('#r-scan')?.addEventListener('click', () => startTask('inbox'));
   };
 };
+
+// ---------- Entrevistas: agenda + mesa de estudo montada em cima da vaga ----------
+let ivSel = null, ivMode = 'cards', ivCur = null, ivTimer = null;
+const ivStore = { get(k, d) { try { const v = localStorage.getItem('iv:' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+                  set(k, v) { try { localStorage.setItem('iv:' + k, JSON.stringify(v)); } catch (e) {} } };
+const ivParse = s => { if (!s) return null; const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/); return m ? new Date(+m[1], m[2] - 1, +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0) : null; };
+const ivDays = d => { const a = new Date(); a.setHours(0, 0, 0, 0); const b = new Date(d); b.setHours(0, 0, 0, 0); return Math.round((b - a) / 864e5); };
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+function ivWhen(s) {
+  const d = ivParse(s); if (!d) return {label: 'sem data marcada', left: '', soon: false};
+  const hasTime = /\d{2}:\d{2}/.test(s), t = hasTime ? ` às ${s.slice(11, 16)}` : '', n = ivDays(d);
+  const label = (n === 0 ? 'Hoje' : n === 1 ? 'Amanhã' : n === -1 ? 'Ontem' : `${d.getDate()} de ${MESES[d.getMonth()]}`) + t;
+  let left = '', soon = false;
+  const ms = d - new Date();
+  if (hasTime && ms > 0 && ms < 864e5) { const h = Math.floor(ms / 36e5), m = Math.floor(ms % 36e5 / 6e4); left = `em ${h ? h + 'h' : ''}${String(m).padStart(h ? 2 : 1, '0')}${h ? '' : ' min'}`; soon = ms < 3 * 36e5; }
+  else if (n > 1) left = `em ${n} dias`; else if (n < 0 || (hasTime && ms < 0)) left = 'já passou';
+  return {label, left, soon};
+}
+function ivReadiness(iv) {
+  const k = iv.kit, known = ivStore.get(iv.id + ':known', []).length, best = ivStore.get(iv.id + ':best', 0);
+  const c = k.cards.length ? known / k.cards.length : 0, q = k.quiz.length ? best / k.quiz.length : 0;
+  return Math.round((c * .65 + q * .35) * 100);
+}
+
+views.entrevistas = async () => {
+  const list = (await api('/api/interviews')).items || [];
+  if (!ivSel || !list.some(i => i.id === ivSel)) ivSel = (list.find(i => i.status === 'aberta') || list[0] || {}).id || null;
+  const iv = ivSel ? await api('/api/interview?id=' + ivSel) : null;
+  return () => {
+    setHead('Entrevistas', 'Diga qual vaga é e ensaie em cima dela');
+    $('#content').innerHTML = `<div class="ivx">
+      <aside class="ivx-side">
+        <form class="ivx-compose" id="ivx-form">
+          <label for="ivx-text">Qual entrevista vamos preparar?</label>
+          <textarea id="ivx-text" placeholder="Cole a mensagem do recrutador ou escreva: Acme, Desenvolvedor Python, hoje 14h"></textarea>
+          <div class="row"><span class="tip">O bot acha a vaga e o que enviou nela</span><button class="btn primary" id="ivx-go" type="submit">Preparar</button></div>
+        </form>
+        <nav class="ivx-agenda" id="ivx-agenda" aria-label="Suas entrevistas"></nav>
+      </aside>
+      <div class="ivx-main" id="ivx-main"></div></div>`;
+    ivAgenda(list);
+    $('#ivx-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const text = $('#ivx-text').value.trim();
+      if (text.length < 3) return toast('Escreva a empresa e a vaga, ou cole a mensagem do recrutador', true);
+      const r = await act($('#ivx-go'), () => post('/api/interview/new', {text}), 'Entrevista criada');
+      if (r && r.id) { ivSel = r.id; ivMode = 'cards'; route(); refreshCounts(); }
+    });
+    if (iv) ivShow(iv); else $('#ivx-main').innerHTML = `<div class="ivx-desk ivx-empty"><b>Nenhuma entrevista ainda</b>
+      <span>Escreva ao lado qual é a vaga. Convites que chegam no e-mail aparecem aqui sozinhos.</span></div>`;
+  };
+};
+
+function ivAgenda(list) {
+  const open = list.filter(i => i.status === 'aberta'), done = list.filter(i => i.status !== 'aberta');
+  const item = i => { const d = ivParse(i.scheduled_at), n = d ? ivDays(d) : null;
+    return `<button class="ivx-item ${i.status !== 'aberta' ? 'past' : ''}" data-iv="${i.id}" aria-current="${i.id === ivSel}">
+      <span class="ivx-date ${n === 0 ? 'today' : ''}">${d ? `<b>${d.getDate()}</b><span>${MESES[d.getMonth()]}</span>` : '<span>sem<br>data</span>'}</span>
+      <span style="min-width:0"><span class="who" style="display:block">${esc(i.company || '—')}</span><span class="what" style="display:block">${esc(i.title || '')}</span></span></button>`; };
+  $('#ivx-agenda').innerHTML = (open.length ? `<h3>Próximas</h3>${open.map(item).join('')}` : '') + (done.length ? `<h3>Feitas e arquivadas</h3>${done.map(item).join('')}` : '');
+  $$('#ivx-agenda [data-iv]').forEach(b => b.addEventListener('click', async () => {
+    if (+b.dataset.iv === ivSel) return;
+    ivSel = +b.dataset.iv; ivMode = 'cards';
+    $$('#ivx-agenda [data-iv]').forEach(x => x.setAttribute('aria-current', x === b));
+    $('#ivx-main').style.opacity = .5;
+    try { ivShow(await api('/api/interview?id=' + ivSel)); } catch (e) { toast('Não consegui abrir: ' + e.message, true); }
+    $('#ivx-main').style.opacity = '';
+    if (innerWidth < 1000) $('#ivx-main').scrollIntoView({behavior: 'smooth', block: 'start'});
+  }));
+}
+
+function ivShow(iv) {
+  ivCur = iv; clearInterval(ivTimer); ivTimer = null;
+  const k = iv.kit, w = ivWhen(iv.scheduled_at), ready = ivReadiness(iv);
+  const lvl = {junior: 'Júnior', mid: 'Pleno', senior: 'Sênior'}[k.level];
+  const facts = [['Salário', iv.salary], ['Local', iv.location], ['Horário de trabalho', iv.notes && iv.notes.length < 60 ? iv.notes : ''],
+                 ['Modelo', iv.mode], ['Nível', lvl], ['Tecnologias', (k.stack || []).join(', ')]].filter(f => f[1]);
+  const modes = [['cards', 'Cartões'], ['sim', 'Simulado'], ['quiz', 'Quiz'], ['plan', 'Roteiro'], ['job', 'Vaga']];
+  $('#ivx-main').innerHTML = `
+    <header class="ivx-hero">
+      <div class="top"><div style="min-width:0"><h2 class="ivx-company">${esc(iv.company || 'Entrevista')}</h2><div class="ivx-role">${esc(iv.title || '')}</div></div>
+        <div class="ivx-clock ${w.soon ? 'soon' : ''}"><div class="when">${esc(w.label)}</div><div class="left">${esc(w.left)}</div></div></div>
+      <div class="ivx-ready" title="Cartões dominados e melhor nota no quiz"><span>Seu preparo</span><span class="bar"><i id="ivx-ready" style="width:${ready}%"></i></span><b id="ivx-ready-n">${ready}%</b></div>
+      ${facts.length ? `<dl class="ivx-facts">${facts.map(([a, b]) => `<div><dt>${a}</dt><dd>${esc(b)}</dd></div>`).join('')}</dl>` : ''}
+      <div class="acts">${iv.status === 'aberta' ? `<button class="btn" data-st="feita">Marcar como feita</button>` : `<button class="btn" data-st="aberta">Reabrir</button>`}
+        ${iv.status !== 'arquivada' ? `<button class="btn" data-st="arquivada">Arquivar</button>` : ''}</div>
+    </header>
+    <div class="ivx-modes" role="tablist" aria-label="Modo de estudo">${modes.map(([m, l]) => `<button role="tab" data-mode="${m}" aria-selected="${m === ivMode}">${l}</button>`).join('')}</div>
+    <section class="ivx-desk" id="ivx-desk" aria-live="polite"></section>`;
+  $$('#ivx-main [data-mode]').forEach(b => b.addEventListener('click', () => { ivMode = b.dataset.mode; $$('#ivx-main [data-mode]').forEach(x => x.setAttribute('aria-selected', x === b)); ivDesk(); }));
+  $$('#ivx-main [data-st]').forEach(b => b.addEventListener('click', async () => {
+    if (await act(b, () => post('/api/interview/update', {id: iv.id, status: b.dataset.st}), b.dataset.st === 'feita' ? 'Marcada como feita' : b.dataset.st === 'arquivada' ? 'Arquivada' : 'Reaberta')) { route(); refreshCounts(); }
+  }));
+  ivDesk();
+}
+function ivBumpReady() { if (!ivCur) return; const r = ivReadiness(ivCur); const b = $('#ivx-ready'); if (b) { b.style.width = r + '%'; $('#ivx-ready-n').textContent = r + '%'; } }
+function ivDesk() {
+  clearInterval(ivTimer); ivTimer = null;
+  const desk = $('#ivx-desk'), iv = ivCur; if (!desk || !iv) return;
+  ({cards: ivCards, sim: ivSim, quiz: ivQuiz, plan: ivPlan, job: ivJob}[ivMode] || ivCards)(desk, iv);
+}
+
+// cartões: pergunta sempre visível, resposta abaixo ao tocar em "Mostrar resposta"
+let ivCardState = null;
+function ivCards(desk, iv) {
+  const k = iv.kit, id = iv.id, known = new Set(ivStore.get(id + ':known', []));
+  const decks = ['Todos os cartões', ...new Set(k.cards.map(c => c.d))];
+  let deck = ivStore.get(id + ':deck', decks[0]); if (!decks.includes(deck)) deck = decks[0];
+  const st = ivCardState = {order: [], idx: 0, open: false, pending: false};
+  desk.innerHTML = `<div class="ivx-tools"><select id="ivx-deck" aria-label="Baralho">${decks.map(d => `<option ${d === deck ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>
+      <button class="ivx-linkbtn" id="ivx-pend" aria-pressed="false">Só os que faltam</button><button class="ivx-linkbtn" id="ivx-shuf">Embaralhar</button><span class="count" id="ivx-count"></span></div>
+    <div class="ivx-progress"><i id="ivx-prog"></i></div>
+    <div class="ivx-deck" id="ivx-dk"></div><div class="ivx-q" id="ivx-q"></div>
+    <button class="btn primary ivx-reveal" id="ivx-show">Mostrar resposta</button>
+    <div class="ivx-a" id="ivx-a" hidden></div>
+    <div class="ivx-big" id="ivx-grade" hidden><button class="btn again" id="ivx-again">Revisar de novo</button><button class="btn good" id="ivx-knew">Já sei</button></div>
+    <div class="ivx-keys">Teclado: <kbd>Espaço</kbd> mostra a resposta · <kbd>1</kbd> revisar · <kbd>2</kbd> já sei</div>`;
+  const inDeck = i => deck === decks[0] || k.cards[i].d === deck;
+  const build = shuffle => { st.order = k.cards.map((c, i) => i).filter(i => inDeck(i) && (!st.pending || !known.has(i))); if (shuffle) st.order.sort(() => Math.random() - .5); st.idx = 0; show(); };
+  const show = () => {
+    st.open = false; $('#ivx-a').hidden = true; $('#ivx-grade').hidden = true; $('#ivx-show').hidden = false;
+    const total = k.cards.filter((c, i) => inDeck(i)).length, done = k.cards.filter((c, i) => inDeck(i) && known.has(i)).length;
+    $('#ivx-prog').style.width = (total ? done / total * 100 : 0) + '%';
+    $('#ivx-count').textContent = `${done} de ${total} dominados`;
+    if (!st.order.length) { $('#ivx-dk').textContent = ''; $('#ivx-q').textContent = 'Você domina todos os cartões deste baralho.'; $('#ivx-show').hidden = true; return; }
+    const c = k.cards[st.order[st.idx]];
+    $('#ivx-dk').textContent = `${c.d} · cartão ${st.idx + 1} de ${st.order.length}`; $('#ivx-q').innerHTML = c.q; $('#ivx-a').innerHTML = c.a;
+  };
+  st.reveal = () => { if (!st.order.length || st.open) return; st.open = true; $('#ivx-a').hidden = false; $('#ivx-grade').hidden = false; $('#ivx-show').hidden = true; $('#ivx-knew').focus({preventScroll: true}); };
+  st.grade = ok => { if (!st.order.length || !st.open) return; const i = st.order[st.idx]; ok ? known.add(i) : known.delete(i); ivStore.set(id + ':known', [...known]); ivBumpReady();
+    if (ok && st.pending) { st.order.splice(st.idx, 1); if (st.idx >= st.order.length) st.idx = 0; } else st.idx = (st.idx + 1) % st.order.length; show(); };
+  $('#ivx-show').addEventListener('click', st.reveal);
+  $('#ivx-knew').addEventListener('click', () => st.grade(true)); $('#ivx-again').addEventListener('click', () => st.grade(false));
+  $('#ivx-shuf').addEventListener('click', () => build(true));
+  $('#ivx-pend').addEventListener('click', e => { st.pending = !st.pending; e.currentTarget.setAttribute('aria-pressed', st.pending); build(false); });
+  $('#ivx-deck').addEventListener('change', e => { deck = e.target.value; ivStore.set(id + ':deck', deck); build(false); });
+  build(false);
+}
+// um único atalho de teclado para a tela inteira (registrado uma vez)
+if (!window.__ivKeys) { window.__ivKeys = true; document.addEventListener('keydown', e => {
+  if (currentView() !== 'entrevistas' || ivMode !== 'cards' || !ivCardState || !document.getElementById('ivx-q') || (e.target.closest && e.target.closest('textarea, input, select'))) return;
+  if (e.code === 'Space') { e.preventDefault(); ivCardState.reveal(); } else if (e.key === '1') ivCardState.grade(false); else if (e.key === '2') ivCardState.grade(true);
+}); }
+
+function ivSim(desk, iv) {
+  const sims = iv.kit.sim; let i = -1;
+  desk.innerHTML = `<div class="ivx-tools"><span class="ivx-timer" id="ivx-tm">1:00</span><span class="count">responda em voz alta em até 1 minuto</span></div>
+    <div class="ivx-q" id="ivx-sq"></div>
+    <div class="ivx-tools"><button class="btn primary" id="ivx-start">Começar cronômetro</button><button class="btn" id="ivx-model-b">Ver resposta-modelo</button><button class="ivx-linkbtn" id="ivx-next">Outra pergunta</button></div>
+    <div id="ivx-model" class="ivx-modelwrap" hidden><div class="ivx-model" id="ivx-sa"></div><b>Sua resposta tinha:</b><ul class="ivx-checks" id="ivx-ck"></ul></div>`;
+  const stop = () => { clearInterval(ivTimer); ivTimer = null; const b = $('#ivx-start'); if (b) b.textContent = 'Começar cronômetro'; };
+  const next = () => { let n; do { n = Math.floor(Math.random() * sims.length); } while (n === i && sims.length > 1); i = n; const s = sims[n];
+    stop(); $('#ivx-tm').textContent = '1:00'; $('#ivx-tm').classList.remove('late'); $('#ivx-model').hidden = true;
+    $('#ivx-sq').innerHTML = s.q; $('#ivx-sa').innerHTML = s.a;
+    $('#ivx-ck').innerHTML = (s.checks.length ? s.checks : ['Respondi em até 1 minuto', 'Usei um exemplo meu']).map((c, j) => `<li><label><input type="checkbox" id="ivx-c${j}"> ${esc(c)}</label></li>`).join(''); };
+  $('#ivx-start').addEventListener('click', () => { if (ivTimer) return stop(); let left = 60; $('#ivx-start').textContent = 'Parar';
+    ivTimer = setInterval(() => { const el = $('#ivx-tm'); if (!el) return stop(); left--; const a = Math.abs(left);
+      el.textContent = `${left < 0 ? '−' : ''}${Math.floor(a / 60)}:${String(a % 60).padStart(2, '0')}`; el.classList.toggle('late', left < 0); }, 1000); });
+  $('#ivx-model-b').addEventListener('click', () => { $('#ivx-model').hidden = false; stop(); });
+  $('#ivx-next').addEventListener('click', next);
+  next();
+}
+
+function ivQuiz(desk, iv) {
+  const k = iv.kit, id = iv.id; let order = k.quiz.map((q, n) => n).sort(() => Math.random() - .5), qi = 0, score = 0;
+  desk.innerHTML = `<div class="ivx-tools"><span class="count" id="ivx-qc" style="margin:0"></span><span class="count" id="ivx-qs"></span></div>
+    <div class="ivx-progress"><i id="ivx-qp"></i></div><div class="ivx-q" id="ivx-qq"></div><pre class="ivx-code" id="ivx-qcode" hidden></pre>
+    <div class="ivx-opts" id="ivx-qo"></div><div class="ivx-exp" id="ivx-qe" hidden></div>
+    <div class="ivx-tools"><button class="btn primary" id="ivx-qn" hidden>Próxima pergunta</button><button class="ivx-linkbtn" id="ivx-qr" hidden>Fazer de novo</button></div>`;
+  const show = () => {
+    $('#ivx-qp').style.width = (qi / k.quiz.length * 100) + '%'; $('#ivx-qs').textContent = `${score} acertos · melhor: ${ivStore.get(id + ':best', 0)}`;
+    $('#ivx-qe').hidden = true; $('#ivx-qn').hidden = true; $('#ivx-qr').hidden = true;
+    if (qi >= order.length) { $('#ivx-qc').textContent = 'Fim do quiz'; $('#ivx-qq').textContent = `Você acertou ${score} de ${k.quiz.length}.`; $('#ivx-qo').innerHTML = ''; $('#ivx-qcode').hidden = true; $('#ivx-qr').hidden = false;
+      if (score > ivStore.get(id + ':best', 0)) { ivStore.set(id + ':best', score); ivBumpReady(); } return; }
+    const q = k.quiz[order[qi]]; $('#ivx-qc').textContent = `Pergunta ${qi + 1} de ${k.quiz.length}`;
+    $('#ivx-qq').textContent = q.q; $('#ivx-qcode').hidden = !q.code; $('#ivx-qcode').textContent = q.code || '';
+    $('#ivx-qo').innerHTML = q.o.map((o, j) => `<button class="ivx-opt" data-o="${j}">${esc(o)}</button>`).join('');
+    $$('#ivx-qo .ivx-opt').forEach(b => b.addEventListener('click', () => { const j = +b.dataset.o;
+      $$('#ivx-qo .ivx-opt').forEach((x, n) => { x.disabled = true; if (n === q.r) x.classList.add('right'); else if (n === j) x.classList.add('wrong'); });
+      if (j === q.r) score++; $('#ivx-qe').textContent = (j === q.r ? 'Certo. ' : 'Errado. ') + q.e; $('#ivx-qe').hidden = false; $('#ivx-qn').hidden = false;
+      $('#ivx-qs').textContent = `${score} acertos · melhor: ${ivStore.get(id + ':best', 0)}`; $('#ivx-qn').focus({preventScroll: true}); }));
+  };
+  $('#ivx-qn').addEventListener('click', () => { qi++; show(); });
+  $('#ivx-qr').addEventListener('click', () => { order.sort(() => Math.random() - .5); qi = 0; score = 0; show(); });
+  show();
+}
+
+const PREP_NAMES = {'gpt-6-luna': 'GPT-6 Luna (econômico)', 'gpt-4.1-mini': 'GPT-4.1 mini (antigo)', 'gpt-6.1-terra': 'GPT-6.1 Terra (equilibrado)',
+  'gpt-4.1': 'GPT-4.1 (antigo)', 'gpt-6.1-sol': 'GPT-6.1 Sol (caprichado)', 'gpt-6-sol': 'GPT-6 Sol', 'gpt-6-astra': 'GPT-6 Astra (topo, caro)'};
+const prepLabel = m => PREP_NAMES[m] || m || 'modelo desconhecido';
+const brl = v => 'R$ ' + (v < 0.01 ? (+v).toFixed(4) : (+v).toFixed(2)).replace('.', ',');
+function ivPlan(desk, iv) {
+  const p = iv.kit.plan, id = iv.id, done = new Set(ivStore.get(id + ':prep', []));
+  desk.innerHTML = `<div class="ivx-plan">
+    <section class="wide"><h3>Seu pitch de 1 minuto</h3><div class="ivx-say">${esc(p.pitch)}</div></section>
+    ${p.honest ? `<section><h3>Sobre o que você ainda não domina</h3><div class="ivx-say">${esc(p.honest)}</div></section>` : ''}
+    <section><h3>Pretensão salarial</h3><div class="ivx-say">${esc(p.salary)}</div></section>
+    <section><h3>Perguntas para fazer a eles</h3><ol>${p.ask.map(a => `<li>${esc(a)}</li>`).join('')}</ol></section>
+    <section><h3>Antes da entrevista</h3><ul class="ivx-checks">${p.checklist.map((c, j) => `<li><label><input type="checkbox" data-pk="${j}" ${done.has(j) ? 'checked' : ''}> ${esc(c)}</label></li>`).join('')}</ul></section>
+    <section class="wide ivx-ai"><h3>Preparação por IA</h3>
+      <p class="small muted" style="margin:0">Vaga em detalhe, seus pontos fortes e de atenção, perguntas comportamentais com resposta-modelo em primeira pessoa e perguntas técnicas da stack. Usa só fatos do seu perfil.</p>
+      <div class="ivx-ai-row"><label for="ivx-model" class="small">Modelo</label>
+        <select id="ivx-model">${(iv.prep_options?.models || []).map(m => `<option value="${esc(m.model)}">${esc(prepLabel(m.model))} · ~${brl(m.brl)}</option>`).join('')}</select>
+        <button class="btn primary" id="ivx-ai-go">${iv.prep ? 'Gerar de novo' : 'Gerar preparação'}</button></div>
+      <div class="ivx-cost" id="ivx-cost" role="status"></div>
+      ${iv.prep ? `<div class="small muted">Gerado com ${esc(prepLabel(iv.prep_model || ''))}${iv.prep_cost ? ` · custo real ${brl(+iv.prep_cost)}` : ''}</div><div class="ivx-say">${esc(iv.prep)}</div>` : ''}
+    </section></div>`;
+  $$('#ivx-desk [data-pk]').forEach(c => c.addEventListener('change', () => { const s = new Set(ivStore.get(id + ':prep', [])); c.checked ? s.add(+c.dataset.pk) : s.delete(+c.dataset.pk); ivStore.set(id + ':prep', [...s]); }));
+  const opts = iv.prep_options?.models || [], sel = $('#ivx-model');
+  const remembered = ivStore.get('prepModel', ''), def = (opts.find(m => m.model === remembered) || opts.find(m => m.default) || opts[0] || {}).model;
+  if (def) sel.value = def;
+  const showCost = () => {
+    const m = opts.find(x => x.model === sel.value); if (!m) return;
+    const left = iv.budget && iv.budget.remaining_brl != null ? iv.budget.remaining_brl : null, cap = iv.budget?.budget_brl;
+    const level = m.brl >= 0.3 ? 'high' : m.brl >= 0.05 ? 'mid' : 'low';
+    const note = level === 'high' ? 'Modelo de topo: caro para esta tarefa. Use só se as opções mais baratas não ficarem boas.'
+               : level === 'mid' ? 'Mais caprichado, ainda barato.' : 'Econômico: dá para gerar várias vezes sem pesar.';
+    $('#ivx-cost').className = 'ivx-cost ' + level;
+    $('#ivx-cost').innerHTML = `<b>Custo estimado: ~${brl(m.brl)} por preparação.</b> ${note}${left != null ? `<br>Sobra ${brl(left)} do teto de ${brl(cap || 0)} deste mês.` : ''}`;
+  };
+  sel.addEventListener('change', () => { ivStore.set('prepModel', sel.value); showCost(); });
+  showCost();
+  $('#ivx-ai-go').addEventListener('click', async () => {
+    const r = await act($('#ivx-ai-go'), () => post('/api/interview/prep', {id, model: sel.value}), 'Preparação gerada');
+    if (r && r.prep) { iv.prep = r.prep; iv.prep_model = r.model; iv.prep_cost = String(r.brl); if (r.budget) iv.budget = r.budget; ivPlan(desk, iv); toast(`Preparação gerada · custo real ${brl(r.brl)}`); }
+  });
+}
+
+function ivJob(desk, iv) {
+  const app = iv.application;
+  desk.innerHTML = `<div class="ivx-plan">
+    <section class="wide"><h3>Mensagem e descrição da vaga</h3><div class="ivx-desc">${esc(iv.description || 'Sem descrição.')}</div></section>
+    ${app ? `<section><h3>O que o bot enviou nesta vaga</h3><p class="small muted" style="margin:0">Candidatura em ${fmtDT(app.applied_at)}${app.ats ? ' pela ' + esc(app.ats) : ''}. Esteja pronto para confirmar:</p>
+      <ul>${(app.answers || []).map(a => `<li><b>${esc(a.q)}</b><br>${esc(a.a)}</li>`).join('') || '<li class="muted">O formulário não fez perguntas.</li>'}</ul></section>` : ''}
+    <section><h3>Dados da entrevista</h3><form class="ivx-form" id="ivx-edit">
+      <label for="ivx-f-when">Data e hora (aaaa-mm-dd hh:mm)</label><input id="ivx-f-when" value="${esc(iv.scheduled_at || '')}" placeholder="2026-11-13 14:00">
+      <label for="ivx-f-mode">Modelo</label><input id="ivx-f-mode" value="${esc(iv.mode || '')}" placeholder="remoto, presencial ou híbrido">
+      <label for="ivx-f-notes">Anotações</label><textarea id="ivx-f-notes" placeholder="Quem vai entrevistar, o que pesquisou da empresa...">${esc(iv.notes || '')}</textarea>
+      <div><button class="btn primary" type="submit" id="ivx-save">Salvar</button></div></form></section></div>`;
+  $('#ivx-edit').addEventListener('submit', async e => { e.preventDefault();
+    const body = {id: iv.id, scheduled_at: $('#ivx-f-when').value.trim(), mode: $('#ivx-f-mode').value.trim(), notes: $('#ivx-f-notes').value};
+    if (await act($('#ivx-save'), () => post('/api/interview/update', body), 'Salvo')) { Object.assign(iv, body); ivMode = 'job'; ivShow(iv); }
+  });
+}
 
 views.cursos = async () => {
   const d = await api('/api/courses'); const stacks = Object.keys(d.stacks||{}).sort();
@@ -772,7 +1307,8 @@ const setHead = (t, s) => { $('#title').textContent = t; $('#subtitle').textCont
 const currentView = () => (location.hash.replace('#/','') || 'hoje');
 const setBadge = (id, v, hot=false) => { const el = $(id); el.textContent = v ? v : ''; el.classList.toggle('hot', hot && v > 0); };
 async function refreshCounts() {
-  try { const o = await api('/api/overview');
+  try { const o = await api('/api/counts');   // leve: só contadores (o /api/overview completo é da tela "Visão do dia")
+    setBadge('#n-iv', o.kpi.interviews_open, true);
     setBadge('#n-pend', o.kpi.pending, true); setBadge('#n-ret', o.kpi.responses_todo, true); setBadge('#n-apps', o.kpi.applied_total); setBadge('#n-queue', o.kpi.queued); setBadge('#n-skip', o.kpi.skipped_today);
     const run = Object.keys(o.running).filter(k => k !== 'dashboard'); const p = $('#run-pill'); p.className = 'pill ' + (run.length ? 'on' : 'off'); p.innerHTML = `<i></i>${run.length ? 'rodando: ' + esc(run.map(k=>kindLabel[k]||k).join(', ')) : 'parado'}`;
     const zz = sleepingUntil(run, o.active_hours);
@@ -803,6 +1339,29 @@ $('#scrim').addEventListener('click', closeMore);
 $$('#more a').forEach(a => a.addEventListener('click', closeMore));
 // cada navegação ganha um número: se uma tela lenta (eventos, cursos) terminar depois de você ter trocado de tela,
 // o resultado dela é descartado em vez de sobrescrever a tela atual
+// ---------- movimento: um momento só por tela (entrada em cascata) + números que contam ----------
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animateIn() {
+  const c = $('#content'); if (!c) return;
+  [...c.children].forEach((el, i) => el.style.setProperty('--i', Math.min(i, 8)));
+  c.classList.remove('enter'); void c.offsetWidth; if (!reduceMotion()) c.classList.add('enter');
+  $$('#content [data-n]').forEach(countUp);
+}
+function countUp(el) {
+  const end = +el.dataset.n; if (!isFinite(end) || reduceMotion() || end === 0) return;
+  const node = [...el.childNodes].find(n => n.nodeType === 3 && n.textContent.trim()); if (!node) return;
+  const t0 = performance.now(), dur = 700 + Math.min(600, end * 3);
+  const step = t => { const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); node.textContent = String(Math.round(end * e)); if (p < 1) requestAnimationFrame(step); };
+  node.textContent = '0'; requestAnimationFrame(step);
+}
+// menu lateral ganha os mesmos ícones do menu do celular
+function navIcons() {
+  $$('.nav a[data-view]').forEach(a => {
+    if (a.querySelector('.ico')) return;
+    const src = document.querySelector(`#tabbar a[data-view="${a.dataset.view}"] svg, #more a[data-view="${a.dataset.view}"] svg`);
+    if (!src) return; const ic = src.cloneNode(true); ic.classList.add('ico'); ic.setAttribute('aria-hidden', 'true'); a.prepend(ic);
+  });
+}
 let routeSeq = 0;
 async function route() {
   const seq = ++routeSeq; const v = currentView();
@@ -810,7 +1369,7 @@ async function route() {
   // "Mais" acende quando a tela atual está na folha
   $('#t-more').classList.toggle('active', !!$(`#more a[data-view="${v}"]`));
   window.scrollTo(0, 0);
-  try { const paint = await (views[v] || views.hoje)(); if (seq === routeSeq && paint) paint(); }
+  try { const paint = await (views[v] || views.hoje)(); if (seq === routeSeq && paint) { paint(); animateIn(); } }
   catch (e) { if (seq === routeSeq) $('#content').innerHTML = `<div class="panel span12"><div class="empty">Não consegui carregar: ${esc(e.message)}. O painel está rodando? (<code>vagas dashboard</code>)</div></div>`; }
 }
 // tema: automático → claro → escuro
@@ -821,7 +1380,7 @@ applyTheme(theme);
 const nextTheme = () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; applyTheme(theme); try { localStorage.setItem('vagas-theme', theme); } catch (e) {} };
 $('#theme').addEventListener('click', nextTheme); $('#m-theme').addEventListener('click', nextTheme);
 
-window.addEventListener('hashchange', route); route(); refreshCounts();
+window.addEventListener('hashchange', route); navIcons(); route(); refreshCounts();
 setInterval(() => { refreshCounts(); if (currentView() === 'hoje' && !$('#drawer').classList.contains('open')) route(); }, 30000);
 </script>
 </body>
