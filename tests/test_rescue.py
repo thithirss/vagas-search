@@ -85,6 +85,18 @@ class RescueTests(unittest.TestCase):
         self.assertFalse(rescue.would_commit(rescue.Rescue("click", "Próximo", "avancar")))
 
 
+class SocialLinkTests(unittest.TestCase):
+    def test_follow_is_never_next_and_social_links_are_skipped(self):
+        from vagas import forms
+        from vagas.appliers.flow import SOCIAL_HOST_RE
+        for t in ("Seguir", "Follow", "Deixar de seguir"):
+            self.assertTrue(forms.BAD_RE.search(t), t)
+            self.assertFalse(forms.NEXT_RE.match(t), t)
+        self.assertTrue(forms.NEXT_RE.match("Prosseguir"))
+        self.assertTrue(SOCIAL_HOST_RE.search("https://x.com/krakenfx"))
+        self.assertFalse(SOCIAL_HOST_RE.search("https://max.com/carreiras"))
+
+
 class IndeedPauseTests(unittest.TestCase):
     def test_blocked_refunds_attempt_and_pauses_source(self):
         from unittest.mock import patch

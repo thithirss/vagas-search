@@ -32,6 +32,7 @@ RESUME_FILE_RE = re.compile(r"curr[ií]cul|resume|\bcv\b|anex", re.I)
 # "Ativar", criando ALERTA DE VAGAS na conta do usuário. Só vale com zero campos: o Easy Apply do
 # LinkedIn roda legitimamente com a URL da busca (currentJobId), por isso nada de LinkedIn aqui.
 JOB_SEARCH_URL_RE = re.compile(r"indeed\.com/jobs\?|from=searchOnDesktopSerp", re.I)
+SOCIAL_HOST_RE = re.compile(r"^https?://([a-z0-9-]+\.)?(x|twitter|instagram|facebook|fb|youtube|tiktok|threads)\.(com|net)(/|$)", re.I)
 COVER_RE = re.compile(r"carta|cover letter|apresenta[cç][aã]o", re.I)
 # botão de avançar que já grava/envia algo no ATS: no dry-run, para antes dele
 DRY_RUN_COMMIT_RE = re.compile(r"inscri[cç][aã]o|inscrever|candidat|aplicar|\bapply\b|salvar|\bsave\b|confirm|registrar|cadastrar|"
@@ -142,6 +143,9 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
             except Exception:
                 pass
 
+        if SOCIAL_HOST_RE.search(page.url or ""):
+            # link de candidatura que é perfil em rede social não tem formulário; qualquer clique ali age na conta
+            return FlowResult("skipped", f"link de candidatura é rede social ({(page.url or '')[:60]})", step, answers_log)
         hb = _host_blacklisted(page.url, ctx.settings.filters.host_blacklist)
         if hb:
             return FlowResult("skipped", f"site na blacklist ('{hb}') — descoberto ao abrir o formulário", step, answers_log)
@@ -159,7 +163,8 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
             return FlowResult("failed", "caiu na busca de vagas do Indeed (não é mais o formulário)", step, answers_log)
         # o formulário deixa claro que o trabalho é em inglês (a CI&T pergunta a confiança em
         # "ambiente de trabalho onde se fala inglês"): regra do usuário é não aplicar. Aborta ANTES de enviar.
-        amb = next((f for f in fields if ENGLISH_ENV_RE.search(f.q.label or "")), None)
+        amb = None if ctx.settings.filters.accept_english else next(
+            (f for f in fields if ENGLISH_ENV_RE.search(f.q.label or "")), None)
         if amb is not None:
             return FlowResult("skipped", f"formulário indica trabalho em inglês: '{(amb.q.label or '')[:60]}'", step, answers_log)
         forms.prefetch_combobox_options(scope, fields)

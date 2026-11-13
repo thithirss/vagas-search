@@ -437,6 +437,9 @@ class Pipeline:
             if not re.search(r"portugu", r, re.I)
             and not re.search(r"desej[aá]vel|diferencial|plus|nice|opcional|n[aã]o (é|e) (obrigat|requisito)", r, re.I)
         ]
+        # Mudança do usuário (2026-11-13): "não descarte vagas que cobram inglês" (filters.accept_english)
+        if self.s.filters.accept_english:
+            foreign_required = [r for r in foreign_required if not re.search(r"ingl|english|\ben\b", r, re.I)]
         airline = self._airline(job)
         from .airlines import is_it_support
         airline_it = airline and self.s.airlines.allow_it_support and is_it_support(job.title, job.description)

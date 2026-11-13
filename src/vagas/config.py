@@ -121,6 +121,9 @@ class Filters(BaseModel):
     company_blacklist: list[str] = Field(default_factory=list)
     host_blacklist: list[str] = Field(default_factory=list)   # ATS/portais que não queremos (ex.: talynx.com.br)
     job_languages: list[str] = Field(default_factory=lambda: ["pt-BR"])   # idiomas aceitos na descrição da vaga
+    # true: vaga que EXIGE inglês (ou o formulário diz que o trabalho é em inglês) deixa de ser descartada.
+    # Outros idiomas exigidos (espanhol, alemão…) continuam descartando. O nível declarado vem de profile.languages.
+    accept_english: bool = False
     reject_if: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -222,7 +225,23 @@ class ATSCfg(BaseModel):
     known_hosts: dict[str, str] = Field(default_factory=dict)
 
 
+class LinkedInCfg(BaseModel):
+    """Tela "LinkedIn" (vagas/linkedin_profile.py): análise do perfil, capa e foto. O motor de IA é escolha do usuário."""
+    engine: str = "openai"                 # openai | claude_code | anthropic | codex
+    openai_model: str = "gpt-6.1-terra"
+    anthropic_model: str = "claude-sonnet-5-5"
+    claude_code_model: str = ""            # "" = o padrão do Claude Code instalado
+    codex_model: str = ""                  # "" = o padrão do Codex instalado
+    cli_timeout_s: int = 420
+    image_model: str = "gpt-image-2"       # foto e fundo da capa (só a API da OpenAI gera imagem)
+    image_quality: str = "medium"          # low | medium | high
+    market_days: int = 60                  # janela das vagas usadas para as palavras-chave do mercado
+    # true: "Aplicar" salva sozinho no LinkedIn (com backup para desfazer); false: para antes de Salvar e espera você
+    auto_apply: bool = False
+
+
 class Settings(BaseModel):
+    linkedin: LinkedInCfg = Field(default_factory=LinkedInCfg)
     discovery: Discovery = Field(default_factory=Discovery)
     searches: list[Search] = Field(default_factory=list)      # buscas extras, além da matriz
     max_pages_per_search: int = 3

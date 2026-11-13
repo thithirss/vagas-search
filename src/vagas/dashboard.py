@@ -348,7 +348,7 @@ class Data:
 
 # ---------- tarefas (comandos disparados pelo painel) ----------
 LOGS = DATA_DIR / "logs"
-BROWSER_TASKS = {"search", "prepare", "apply", "run", "resume"}   # usam o perfil do navegador: um por vez
+BROWSER_TASKS = {"search", "prepare", "apply", "run", "resume", "linkedin"}   # usam o perfil do navegador: um por vez
 
 
 WINDOWS = os.name == "nt"
@@ -399,9 +399,9 @@ def running_tasks() -> dict:
     return out
 
 
-def start_task(kind: str, args: dict) -> dict:
+def start_task(kind: str, args: dict, ignore_busy: tuple = ()) -> dict:
     import shlex, sys
-    running = running_tasks()
+    running = {k: v for k, v in running_tasks().items() if k not in ignore_busy}
     if kind in BROWSER_TASKS and any(k in BROWSER_TASKS for k in running):
         busy = ", ".join(k for k in running if k in BROWSER_TASKS)
         raise RuntimeError(f"já existe um processo usando o navegador ({busy}). Pare-o antes ou aguarde terminar.")
@@ -423,6 +423,14 @@ def start_task(kind: str, args: dict) -> dict:
         cmd = base + ["resume", args["job"], "--force"]
     elif kind == "inbox":
         cmd = base + ["retornos"] + (["--dias", str(int(args["dias"]))] if args.get("dias") else [])
+    elif kind == "linkedin":
+        cmd = base + ["linkedin", "ler" if args.get("action") == "ler" else "aplicar"]
+        if args.get("item"): cmd += ["--item", str(args["item"])]
+        if args.get("text_file"): cmd += ["--texto-arquivo", str(args["text_file"])]
+        if args.get("file"): cmd += ["--arquivo", str(args["file"])]
+        if args.get("resume_run"): cmd += ["--religar"]
+        if args.get("auto"): cmd += ["--auto"]
+        if args.get("batch_file"): cmd += ["--lote", str(args["batch_file"])]
     else:
         raise RuntimeError("comando desconhecido")
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -449,6 +457,193 @@ def start_task(kind: str, args: dict) -> dict:
 
 
 STOP_HARD_AFTER = 150   # s: o processo tem 90 s de graça (apply/run) para terminar a vaga atual; depois disso, força
+
+
+# ---------- tela LinkedIn ----------
+def linkedin_browser(args: dict) -> None:
+    """Tarefa de navegador da tela LinkedIn (ler/aplicar). O navegador do bot é um só: se a leva estiver rodando,
+    pausa com parada graciosa, faz a tarefa e religa a leva no fim. Roda numa thread do painel."""
+    import time
+    from . import linkedin_profile as lp
+
+    def work():
+        was_running = "run" in running_tasks()
+        try:
+            if was_running:
+                lp.set_status("pausando", "pausando as candidaturas para usar o navegador do bot…")
+                stop_task("run")
+                for _ in range(90):
+                    if "run" not in running_tasks():
+                        break
+                    time.sleep(2)
+            busy = [k for k in running_tasks() if k in BROWSER_TASKS]
+            if busy:
+                lp.set_status("erro", f"navegador ocupado por: {', '.join(busy)}")
+                raise RuntimeError("ocupado")
+            # quem religa a leva é a PRÓPRIA tarefa no fim (--religar): se o painel reiniciar no meio, a leva volta igual
+            start_task("linkedin", dict(args, resume_run=was_running))
+        except Exception as e:
+            if str(e) != "ocupado":
+                lp.set_status("erro", str(e)[:200])
+            if was_running and "run" not in running_tasks():
+                try:
+                    start_task("run", {})
+                except Exception:
+                    pass
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+def linkedin_state(data) -> dict:
+    from . import engines, interview, linkedin_profile as lp
+    s = data.s
+    try:
+        mkt = lp.market(data.db, data.profile(), s)
+    except Exception as e:
+        mkt = {"error": str(e)[:120], "top": [], "missing": [], "have": [], "jobs": 0}
+    q = s.linkedin.image_quality
+    return {"engines": engines.available(s), "analysis": lp.analysis(), "current": lp.current(), "market": mkt,
+            "status": lp.status(), "images": lp.images(), "styles": list(lp.BANNER_STYLES),
+            "image_cost": {k: lp.image_cost_brl(s, k, 0) for k in ("low", "medium", "high")}, "image_ref_brl": round(lp.IMAGE_INPUT_EST_USD * s.llm.usd_brl, 3), "image_quality": q,
+            "budget": interview.budget_left(data.db, s), "openai_models": s.llm.prep_models,
+            "default_engine": s.linkedin.engine, "running": list(running_tasks()),
+            "auto_apply": s.linkedin.auto_apply, "history": lp.history()[:10]}
+
+
+def linkedin_post(action: str, payload: dict, data) -> tuple[dict, int]:
+    """POST /api/linkedin/<ação>. Devolve (json, código)."""
+    from . import engines, linkedin_profile as lp
+    s = data.s
+    st = lp.status().get("state")
+    if action in ("analyze", "image-ai", "read", "apply", "install") and st in ("trabalhando", "lendo", "aplicando", "pausando"):
+        return {"error": f"espere a tarefa atual terminar ({lp.status().get('msg', '')})"}, 409
+    if action == "analyze":
+        engine = str(payload.get("engine") or s.linkedin.engine)
+        eng = next((e for e in engines.available(s) if e["id"] == engine), None)
+        if not eng or not eng["ok"]:
+            return {"error": f"motor indisponível: {(eng or {}).get('why') or engine}"}, 400
+        model = str(payload.get("model") or "").strip() or None
+        if engine == "openai" and model and model not in s.llm.prep_models:
+            return {"error": f"modelo não permitido: {model}"}, 400
+
+        def go():
+            from .llm import LLM
+            llm = LLM(s.llm, data.db) if os.environ.get("OPENAI_API_KEY") else None
+            st2 = lp.analyze(engine, settings=s, db=data.db, profile=data.profile(), llm=llm, model=model)
+            return f"análise pronta com {engines.LABELS.get(engine, engine)} em {st2['seconds']} s"
+        linkedin_bg(go, f"analisando com {engines.LABELS.get(engine, engine)} (pode levar 1–3 min)…")
+        return {"ok": True}, 200
+    if action in ("install", "login"):
+        tool = str(payload.get("tool") or "")
+        if tool not in engines.CLI:
+            return {"error": "ferramenta inválida"}, 400
+        if action == "login":
+            try:
+                return {"ok": True, "msg": engines.open_login(tool)}, 200
+            except Exception as e:
+                return {"error": str(e)}, 400
+        linkedin_bg(lambda: f"{engines.LABELS[tool]}: {engines.install(tool)}",
+                    f"instalando {engines.LABELS[tool]} (npm, pode levar 1–3 min)…")
+        return {"ok": True}, 200
+    if action == "read":
+        lp.set_status("pausando", "preparando o navegador do bot…")
+        linkedin_browser({"action": "ler"})
+        return {"ok": True}, 200
+    if action == "paste":
+        return {"current": lp.save_pasted(str(payload.get("headline") or ""), str(payload.get("about") or ""),
+                                          str(payload.get("page_text") or ""))}, 200
+    if action in ("apply", "undo"):
+        # um item ({item, value|name}) ou vários ({items: [...]}); "undo" reaplica o que estava antes (history.json)
+        if action == "undo":
+            h = lp.history()
+            k = int(payload.get("index", 0))
+            if not (0 <= k < len(h)) or not h[k].get("old"):
+                return {"error": "nada para desfazer nesse item"}, 400
+            e = h[k]
+            raw = [{"item": e["item"], "value": e["old"]} if e["item"] in ("headline", "about") else {"item": e["item"], "name": e["old"]}]
+        else:
+            raw = payload.get("items") or [payload]
+        items = []
+        for it in raw:
+            item = str(it.get("item") or "")
+            if item not in ("headline", "about", "photo", "banner"):
+                return {"error": f"item inválido: {item}"}, 400
+            if item in ("headline", "about"):
+                value = str(it.get("value") or "").strip()
+                if not value:
+                    return {"error": f"texto vazio em {item}"}, 400
+                limit = 220 if item == "headline" else 2600
+                if len(value) > limit:
+                    return {"error": f"{item} passa de {limit} caracteres (o LinkedIn recusa)"}, 400
+                items.append({"item": item, "value": value})
+            else:
+                name = str(it.get("name") or "")
+                if not re.fullmatch(r"[\w.-]+\.(png|jpe?g|webp)", name) or not (lp.IMG / name).exists():
+                    return {"error": "escolha uma imagem gerada"}, 400
+                items.append({"item": item, "file": str(lp.IMG / name)})
+        f = lp.DIR / "lote.json"; f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+        auto = bool(payload.get("auto", s.linkedin.auto_apply)) or action == "undo"
+        lp.set_status("pausando", "preparando o navegador do bot…")
+        linkedin_browser({"action": "aplicar", "batch_file": str(f), "auto": auto})
+        return {"ok": True}, 200
+    if action == "mark":
+        return {"analysis": lp.mark_applied(str(payload.get("item") or ""), bool(payload.get("value", True)))}, 200
+    if action == "banner":
+        bg = str(payload.get("bg") or "")
+        bg_file = str(lp.IMG / bg) if bg and re.fullmatch(r"[\w.-]+\.png", bg) and (lp.IMG / bg).exists() else ""
+        techs = payload.get("techs")
+        p = lp.banner(data.profile(), str(payload.get("style") or "gradiente"), title=str(payload.get("title") or ""),
+                      techs=[str(t) for t in techs][:7] if isinstance(techs, list) else None,
+                      tagline=str(payload.get("tagline") or ""), bg_file=bg_file)
+        return {"name": p.name}, 200
+    if action == "upload":
+        p = lp.save_upload(str(payload.get("data") or ""))
+        return {"name": p.name}, 200
+    if action == "photo":
+        name = str(payload.get("name") or "")
+        if not re.fullmatch(r"[\w.-]+\.(png|jpe?g|webp)", name) or not (lp.IMG / name).exists():
+            return {"error": "envie uma foto primeiro"}, 400
+        kw = {k: float(payload[k]) for k in ("x", "y", "zoom", "brightness", "contrast", "saturate") if k in payload}
+        p = lp.photo_improve(lp.IMG / name, bg=str(payload.get("bg") or "") if re.fullmatch(r"#[0-9a-fA-F]{3,8}", str(payload.get("bg") or "")) else "", **kw)
+        return {"name": p.name}, 200
+    if action == "image-ai":
+        if not os.environ.get("OPENAI_API_KEY"):
+            return {"error": "imagem por IA só pela API da OpenAI (falta OPENAI_API_KEY)"}, 400
+        mode = str(payload.get("mode") or "")
+        if mode not in lp.PROMPTS:
+            return {"error": "modo inválido"}, 400
+        q = str(payload.get("quality") or s.linkedin.image_quality)
+        if q not in lp.IMAGE_COST_USD:
+            return {"error": "qualidade inválida"}, 400
+        names = [n for n in (payload.get("names") or []) if re.fullmatch(r"[\w.-]+\.(png|jpe?g|webp)", str(n)) and (lp.IMG / n).exists()]
+        if mode != "capa" and not names:
+            return {"error": "envie pelo menos uma foto sua"}, 400
+
+        def go():
+            from .llm import LLM
+            p = lp.image_ai(mode, settings=s, llm=LLM(s.llm, data.db), refs=[lp.IMG / n for n in names[:3]], quality=q)
+            if mode == "capa":   # o fundo gerado vira a capa com o seu texto por cima
+                lp.banner(data.profile(), "gradiente", bg_file=str(p))
+            return f"imagem pronta ({p.name})"
+        linkedin_bg(go, "gerando a imagem (até 1 min)…")
+        return {"ok": True}, 200
+    return {"error": "ação desconhecida"}, 404
+
+
+def linkedin_bg(fn, busy_msg: str) -> None:
+    """Tarefa demorada sem navegador (análise por IA, imagem por IA) numa thread; o estado vai para status.json."""
+    from . import linkedin_profile as lp
+    lp.set_status("trabalhando", busy_msg)
+
+    def work():
+        try:
+            msg = fn()
+            lp.set_status("ok", msg or "pronto")
+        except Exception as e:
+            lp.set_status("erro", f"{type(e).__name__}: {str(e)[:220]}")
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 def stop_task(kind: str, force: bool = False) -> bool:
@@ -595,6 +790,16 @@ def serve(settings: Settings, port: int = 8765) -> None:
                 if u.path in ("/", "/index.html"): return self._file(STATIC / "index.html", "text/html; charset=utf-8")
                 if u.path == "/api/overview": return self._json(data.overview())
                 if u.path == "/api/counts": return self._json(data.counts())
+                if u.path == "/api/linkedin": return self._json(linkedin_state(data))
+                if u.path == "/api/linkedin/status":
+                    from . import linkedin_profile as lp
+                    return self._json({"status": lp.status(), "running": list(running_tasks())})
+                if u.path == "/api/linkedin/img":
+                    from . import linkedin_profile as lp
+                    name = qs.get("name", "")
+                    if not re.fullmatch(r"[\w.-]+\.(png|jpe?g|webp)", name):
+                        return self._json({"error": "arquivo inválido"}, 400)
+                    return self._file(lp.IMG / name)
                 if u.path == "/api/jobs": return self._json(data.jobs(qs.get("status"), qs.get("q"), int(qs.get("limit", 300)), qs.get("today") == "1"))
                 if u.path.startswith("/api/job/"):
                     j = data.job(unquote(u.path[len("/api/job/"):])); return self._json(j) if j else self._json({"error": "não encontrada"}, 404)
@@ -660,6 +865,8 @@ def serve(settings: Settings, port: int = 8765) -> None:
                 if u.path == "/api/interview/update":
                     from . import interview
                     interview.update(data.db, int(payload["id"]), payload); return self._json({"ok": True})
+                if u.path.startswith("/api/linkedin/"):
+                    return self._json(*linkedin_post(u.path.rsplit("/", 1)[1], payload, data))
                 if u.path == "/api/interview/prep":
                     # preparação por IA (opcional): só fatos do perfil, respeita o teto mensal
                     from . import interview

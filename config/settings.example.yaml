@@ -119,6 +119,7 @@ filters:
   # Só vagas com descrição nestes idiomas. Vagas que EXIGEM outro idioma são puladas.
   # Mesmo com inglês avançado, vaga que exige inglês é descartada (mude aqui se quiser aplicar).
   job_languages: ["pt-BR"]
+  accept_english: false              # true = não descarta vaga que exige inglês (o nível vem de profile.languages)
   # Exigências que fazem descartar a vaga
   reject_if:
     requires_relocation: true         # exige mudar de cidade
@@ -265,3 +266,15 @@ ats:
     geekhunter.com.br: geekhunter
     revelo.com.br: revelo
     programathor.com.br: programathor
+
+# Tela "LinkedIn" do painel (diagnóstico, textos, capa e foto). O motor de IA é escolhido na própria tela.
+linkedin:
+  engine: openai                 # padrão da tela: openai | claude_code | anthropic | codex
+  openai_model: gpt-6.1-terra
+  anthropic_model: claude-sonnet-5-5
+  claude_code_model: ""          # "" = padrão do Claude Code instalado
+  codex_model: ""                # "" = padrão do Codex instalado
+  image_model: gpt-image-2       # foto/capa com IA (só API da OpenAI)
+  image_quality: medium          # low | medium | high
+  market_days: 60
+  auto_apply: false              # true = o "Aplicar" salva sozinho no LinkedIn (com backup para desfazer)

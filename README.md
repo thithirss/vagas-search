@@ -123,10 +123,36 @@ A tela **Entrevistas** do painel prepara você para cada entrevista, em cima da 
 
 Funciona para quem clonar: tudo vem do perfil de quem usa o bot; nada é inventado.
 
+## LinkedIn (diagnóstico, textos, capa e foto)
+
+A tela **LinkedIn** do painel estrutura o seu perfil com base nas vagas reais que o bot já encontrou:
+
+- **O que as vagas pedem:** tecnologias mais pedidas nas vagas de dev dos seus níveis (últimos `linkedin.market_days`
+  dias), em verde o que você tem e em laranja o que falta. O que falta vira sugestão de estudo e nunca entra no perfil.
+- **Análise e textos:** nota por seção, 3 opções de título, "Sobre" em português e inglês, bullets das experiências,
+  competências (3 em destaque), projetos e dicas. Só fatos do `config/profile.yaml`; a checagem do bot tira competência
+  que você não tem e avisa tecnologia citada fora do perfil.
+- **Você escolhe a IA:** ChatGPT pela API (`OPENAI_API_KEY`, conta no teto do mês), **Claude** pelo Claude Code
+  instalado (pela sua assinatura) ou pela API da Anthropic (`ANTHROPIC_API_KEY`), ou **Codex** CLI (pela assinatura do
+  ChatGPT). A tela mostra só o que estiver pronto na sua máquina e o motivo dos outros. Claude Code e Codex têm botão
+  **Instalar** (npm oficial; precisa do Node.js, com link se faltar) e **Fazer login** (abre uma janela para você entrar
+  com a sua conta, uma vez). Quem já usa o app do Codex já tem login: o CLI aproveita.
+- **Ler do LinkedIn:** o bot abre o seu perfil no navegador dele e só lê título, Sobre e página (ou cole à mão).
+- **Capa** (1584×396) e **foto** sem IA, de graça: o próprio Chromium do bot desenha a capa com nome, título,
+  tecnologias e o seu primeiro projeto, e recorta/acerta luz da sua foto. Com IA (opcional, só API da OpenAI,
+  `linkedin.image_model`): fundo da capa, troca de fundo da foto ou retrato de estúdio a partir das SUAS fotos, com o
+  custo estimado na tela antes de gerar.
+- **Aplicar no LinkedIn:** o bot abre a edição certa no navegador dele (lápis do título/Sobre; foto → Atualizar →
+  Carregar foto; câmera → Adicionar imagem de capa → Carregar foto única) e carrega o texto ou a imagem. Com
+  **Salvar sozinho** ligado (`linkedin.auto_apply`, ou o interruptor na tela) ele clica em Salvar e confere no perfil;
+  desligado, para antes de Salvar e espera você. Antes de trocar, guarda o que estava lá (texto e cópia da imagem) e
+  a tela mostra **Desfazer**. Dá para marcar título, Sobre, capa e foto com "Selecionar" e aplicar tudo de uma vez.
+  Se o LinkedIn mudar um botão de lugar, a IA barata escolhe onde clicar. As candidaturas pausam e voltam sozinhas.
+
 ## Regras fixas (em código, não só em config)
 
 - **Só vagas recentes** (até 72h, `config.py: HARD_MAX_AGE_HOURS`) e **só remoto**, exceto presencial/híbrido nas cidades de `discovery.local_cities` (vazio = só remoto). O resto é descartado antes de qualquer chamada de IA.
-- **Só descrições em pt-BR** (`filters.job_languages`); descrições em inglês são descartadas por heurística sem IA. Vagas que exigem outro idioma além de inglês são puladas.
+- **Idioma da vaga** (`filters.job_languages`, padrão só pt-BR): descrição em outro idioma é descartada por heurística sem IA. Vaga que EXIGE inglês é pulada, a menos que `filters.accept_english: true` (aí o nível declarado em `profile.languages` vai nas respostas). Outros idiomas exigidos são sempre pulados.
 - **Descoberta no LinkedIn sem usar a conta**: endpoint público `jobs-guest` com `geoId` do Brasil + filtros 24h/remoto; a sessão logada só entra para candidatar. Indeed continua no navegador (Cloudflare). Gupy usa a API pública.
 - **Cobertura por linguagem**: o LinkedIn personaliza "desenvolvedor" pelo seu perfil, então a descoberta roda uma matriz `base_queries` × fontes + `"desenvolvedor {stack}"` para cada item de `discovery.stack_queries` (php, rust, c#, java, ...). Hoje: 61 buscas no LinkedIn, 61 na Gupy, 10 no Indeed por ciclo.
 - **Pretensão salarial**: se a vaga informa salário/faixa, a resposta segue a vaga; senão usa `facts.salary_expectation_<nível>_<regime>` (nível vem do classificador, regime CLT por padrão).

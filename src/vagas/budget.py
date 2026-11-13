@@ -31,6 +31,9 @@ PRICES: dict[str, tuple[float, float, float]] = {
     "gpt-6-luna": (0.10, 0.01, 0.50),
     "gpt-6-sol": (2.00, 0.20, 10.00),
     "gpt-6-astra": (10.00, 1.00, 50.00),
+    # imagem (tela LinkedIn): tokens de imagem de entrada / cache / saída
+    "gpt-image-2": (8.00, 2.00, 30.00),
+    "gpt-image-1-mini": (2.50, 0.25, 8.00),
     "gpt-6.1-terra": (1.00, 0.05, 5.00),
     "gpt-6.1-sol": (2.00, 0.10, 10.00),
 }

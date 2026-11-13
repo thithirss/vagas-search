@@ -566,6 +566,79 @@ dialog.confirm { border-radius: 24px; }
   .content.enter > *, .ivx-a { animation: none; }
   .kpi, .card, .nav a, .btn, .next-iv, .recent a { transition: none; }
 }
+
+/* ---------- tela LinkedIn ---------- */
+.li { display: grid; gap: 16px; grid-column: 1 / -1; min-width: 0; }
+.li .panel { padding: 18px; }
+.li h2 { margin: 0 0 10px; font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.li h2 small { font-weight: 500; color: var(--ink-3); font-size: 12.5px; }
+.li-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.li-tabs button { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 7px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.li-tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.li-status { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-s); background: var(--accent-soft); color: var(--ink); font-size: 13.5px; }
+.li-status.erro { background: var(--red-soft); color: var(--red-ink); }
+.li-status.ok { background: var(--green-soft); color: var(--green-ink); }
+.li-status .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: lispin .8s linear infinite; flex: none; }
+@keyframes lispin { to { transform: rotate(360deg); } }
+.li-engines { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.li-eng-wrap { display: grid; gap: 6px; align-content: start; }
+.li-eng-wrap .btn { justify-self: start; }
+.li-engine { border: 1.5px solid var(--border); border-radius: var(--radius-s); padding: 12px; cursor: pointer; background: var(--surface); text-align: left; font: inherit; color: var(--ink); display: grid; gap: 4px; }
+.li-engine[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.li-engine[disabled] { opacity: .55; cursor: not-allowed; }
+.li-engine b { font-size: 14px; } .li-engine span { font-size: 12.5px; color: var(--ink-2); }
+.li-engine .tag { justify-self: start; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--gray-soft); color: var(--ink-2); }
+.li-engine .tag.free { background: var(--green-soft); color: var(--green-ink); }
+.li-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.li-row select, .li-row input[type=text], .li textarea, .li input[type=color] { font: inherit; border: 1px solid var(--border-2); border-radius: var(--radius-s); padding: 8px 10px; background: var(--surface); color: var(--ink); }
+.li textarea { width: 100%; min-height: 160px; resize: vertical; line-height: 1.5; }
+.li-mkt { display: grid; gap: 6px; }
+.li-bar { display: grid; grid-template-columns: minmax(0, 130px) minmax(0, 1fr) 48px; gap: 10px; align-items: center; font-size: 13px; }
+.li-bar i { display: block; height: 10px; border-radius: 99px; background: var(--gray-soft); overflow: hidden; }
+.li-bar i b { display: block; height: 100%; border-radius: 99px; background: var(--green); }
+.li-bar.miss i b { background: var(--orange); }
+.li-bar .n { color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
+.li-legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 8px; }
+.li-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.li-score { display: flex; align-items: center; gap: 16px; }
+.li-score .big { font-size: 44px; font-weight: 800; line-height: 1; }
+.li-diag { display: grid; gap: 8px; margin-top: 10px; }
+.li-diag div { display: grid; grid-template-columns: 110px 44px minmax(0, 1fr); gap: 10px; font-size: 13.5px; align-items: baseline; }
+.li-diag .nt { font-weight: 800; }
+.li-diag .nt.low { color: var(--red-ink); } .li-diag .nt.mid { color: var(--orange-ink); } .li-diag .nt.hi { color: var(--green-ink); }
+.li-diag small { color: var(--ink-2); display: block; }
+.li-opt { border: 1px solid var(--border); border-radius: var(--radius-s); padding: 12px; display: grid; gap: 8px; background: var(--surface-2); }
+.li-opt p { margin: 0; white-space: pre-wrap; line-height: 1.5; }
+.li-opt .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.li-done { font-size: 12px; font-weight: 700; color: var(--green-ink); background: var(--green-soft); padding: 2px 8px; border-radius: 999px; }
+.li-warn { background: var(--orange-soft); color: var(--orange-ink); border-radius: var(--radius-s); padding: 10px 12px; font-size: 13px; }
+.li-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.li-chips span { padding: 4px 10px; border-radius: 999px; background: var(--gray-soft); font-size: 12.5px; font-weight: 600; }
+.li-chips span.top { background: var(--accent); color: var(--accent-ink); }
+.li-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.li-gal.photos { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.li-img { border: 1px solid var(--border); border-radius: var(--radius-s); overflow: hidden; background: var(--surface); display: grid; }
+.li-img img { width: 100%; display: block; background: var(--gray-soft); }
+.li-img.photo img { aspect-ratio: 1; object-fit: cover; }
+.li-img .acts { display: flex; gap: 6px; padding: 8px; flex-wrap: wrap; }
+.li-photo-edit { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.li-prev { width: 100%; aspect-ratio: 1; border-radius: 50%; overflow: hidden; border: 4px solid var(--surface); box-shadow: var(--shadow-lg); background: #e5e7eb; }
+.li-prev img { width: 100%; height: 100%; object-fit: cover; }
+.li-sliders { display: grid; gap: 10px; }
+.li-sliders label { display: grid; grid-template-columns: 120px minmax(0, 1fr) 44px; gap: 10px; align-items: center; font-size: 13px; }
+.li-cost { font-size: 13px; padding: 8px 12px; border-radius: var(--radius-s); background: var(--gray-soft); }
+.li-cost.mid { background: var(--orange-soft); color: var(--orange-ink); } .li-cost.high { background: var(--red-soft); color: var(--red-ink); }
+.li-note { font-size: 13px; color: var(--ink-2); margin: 6px 0 0; }
+.li [hidden] { display: none !important; }
+@media (max-width: 820px) { .li-photo-edit { grid-template-columns: minmax(0, 1fr); } .li-diag div { grid-template-columns: 90px 36px minmax(0, 1fr); } .li-sliders label { grid-template-columns: 90px minmax(0, 1fr) 40px; } }
+
+.li-switch { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; cursor: pointer; }
+.li-switch input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--accent); }
+.li-sel { display: grid; gap: 6px; margin-top: 10px; }
+.li-sel div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px; font-size: 13px; }
+.li-sel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.li-hist { display: grid; gap: 6px; }
+.li-hist div { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -578,6 +651,7 @@ dialog.confirm { border-radius: 24px; }
       <a href="#/pendencias" data-view="pendencias">Precisa de você <span class="n" id="n-pend"></span></a>
       <a href="#/retornos" data-view="retornos">Retornos <span class="n" id="n-ret"></span></a>
       <a href="#/entrevistas" data-view="entrevistas">Entrevistas <span class="n" id="n-iv"></span></a>
+      <a href="#/linkedin" data-view="linkedin">LinkedIn</a>
       <h6>Vagas</h6>
       <a href="#/candidaturas" data-view="candidaturas">Enviadas <span class="n" id="n-apps"></span></a>
       <a href="#/fila" data-view="fila">Fila <span class="n" id="n-queue"></span></a>
@@ -614,6 +688,7 @@ dialog.confirm { border-radius: 24px; }
   <div class="st-line"><span id="m-run" class="pill off"><i></i>parado</span><span>última busca <b id="m-disc">—</b></span></div>
   <div class="grid">
     <a href="#/pendencias" data-view="pendencias"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Precisa de você<span class="b" id="m-pend"></span></a>
+    <a href="#/linkedin" data-view="linkedin"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7h.01M12 17v-4a2 2 0 0 1 4 0v4M12 10v7"/></svg>LinkedIn</a>
     <a href="#/entrevistas" data-view="entrevistas"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>Entrevistas</a>
     <a href="#/execucao" data-view="execucao"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></svg>Execução e log</a>
     <a href="#/falhas" data-view="falhas"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Falhas</a>
@@ -1337,6 +1412,265 @@ const closeMore = () => { more.classList.remove('open'); more.setAttribute('aria
 $('#t-more').addEventListener('click', () => { const open = !more.classList.contains('open'); if (!open) return closeMore(); more.classList.add('open'); more.setAttribute('aria-hidden', 'false'); $('#scrim').classList.add('on'); });
 $('#scrim').addEventListener('click', closeMore);
 $$('#more a').forEach(a => a.addEventListener('click', closeMore));
+// ---------- LinkedIn: diagnóstico, textos, capa e foto (opção B: o bot preenche, você salva) ----------
+let liTab = 'analise', liEngine = null, liPollT = null, liPhoto = null;
+let liSel = (() => { try { return JSON.parse(localStorage.getItem('li-sel') || '{}'); } catch (e) { return {}; } })();
+const liSaveSel = () => { try { localStorage.setItem('li-sel', JSON.stringify(liSel)); } catch (e) {} };
+const liAuto = d => { const v = liStore('auto'); return v === null || v === undefined ? !!d.auto_apply : v === '1'; };
+const LI_BUSY = ['trabalhando', 'lendo', 'aplicando', 'pausando'];
+const liImg = n => '/api/linkedin/img?name=' + encodeURIComponent(n) + '&t=' + Date.now();
+const liCopy = async (txt) => { try { await navigator.clipboard.writeText(txt); toast('Copiado'); } catch (e) { toast('Não consegui copiar: selecione e use Ctrl+C', true); } };
+const liStore = (k, v) => { try { if (v === undefined) return localStorage.getItem('li-' + k); localStorage.setItem('li-' + k, v); } catch (e) { return null; } };
+
+views.linkedin = async () => {
+  const d = await api('/api/linkedin');
+  return () => {
+    setHead('LinkedIn', 'Diagnóstico com dados das vagas, textos, capa e foto. O bot preenche, você revisa e salva.');
+    if (!liEngine) liEngine = liStore('engine') || d.default_engine;
+    const tabs = [['analise', 'Análise e textos'], ['capa', 'Capa'], ['foto', 'Foto']];
+    $('#content').innerHTML = `<div class="li">
+      <div class="li-tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-li-tab="${k}" aria-selected="${liTab === k}">${l}</button>`).join('')}</div>
+      <div id="li-status"></div>
+      <div id="li-body"></div></div>`;
+    $$('[data-li-tab]').forEach(b => b.addEventListener('click', () => { liTab = b.dataset.liTab; route(); }));
+    liStatus(d.status, d);
+    if (liTab === 'capa') liCapa(d); else if (liTab === 'foto') liFoto(d); else liAnalise(d);
+  };
+};
+
+function liStatus(st, d) {
+  const box = $('#li-status'); if (!box) return;
+  st = st || {};
+  const busy = LI_BUSY.includes(st.state);
+  if (!st.state || (!busy && st.state === 'ok' && st.at && Date.now() - new Date(st.at).getTime() > 10 * 60 * 1000)) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="li-status ${busy ? '' : st.state}">${busy ? '<i class="spin"></i>' : ''}<span>${esc(st.msg || st.state)}</span></div>`;
+  clearTimeout(liPollT);
+  if (busy) liPollT = setTimeout(async () => {
+    if (currentView() !== 'linkedin') return;
+    try { const s = await api('/api/linkedin/status'); if (LI_BUSY.includes((s.status || {}).state)) liStatus(s.status, d); else route(); } catch (e) { liStatus(st, d); }
+  }, 3000);
+}
+const liBusy = d => LI_BUSY.includes((d.status || {}).state);
+
+function liApply(item, payload, label, d) {
+  const auto = d ? liAuto(d) : false;
+  const msg = auto
+    ? `O bot vai trocar "${label}" no seu LinkedIn e SALVAR sozinho, conferindo no perfil. O que está lá agora fica guardado para você desfazer. As candidaturas pausam e voltam sozinhas.`
+    : `O bot vai abrir "${label}" no navegador dele, preencher e PARAR antes de salvar. Revise lá e clique em Salvar. As candidaturas pausam e voltam sozinhas.`;
+  return confirmBox('Aplicar no LinkedIn', msg, auto ? 'Trocar e salvar' : 'Abrir e preencher')
+    .then(ok => ok && post('/api/linkedin/apply', Object.assign({item, auto}, payload)).then(() => { toast(auto ? 'Aplicando sozinho…' : 'Abrindo no navegador do bot…'); route(); }).catch(e => toast(e.message, true)));
+}
+function liApplyPanel(d) {
+  const r = (d.analysis || {}).result || {}, hist = d.history || [];
+  const lab = {headline: 'Título', about: 'Sobre', photo: 'Foto', banner: 'Capa'};
+  const sel = [];
+  if (liSel.headline) sel.push(['Título', liSel.headline]);
+  if (liSel.about && (liSel.aboutText || r.about_pt)) sel.push(['Sobre', (liSel.aboutText || r.about_pt).slice(0, 90) + '…']);
+  if (liSel.banner) sel.push(['Capa', liSel.banner]);
+  if (liSel.photo) sel.push(['Foto', liSel.photo]);
+  return `<section class="panel li-applybox"><h2>Aplicar no LinkedIn <small>marque o que quer usar com "Selecionar" e aplique tudo de uma vez</small></h2>
+    <label class="li-switch"><input type="checkbox" id="li-auto" ${liAuto(d) ? 'checked' : ''}> <span><b>Salvar sozinho</b> · o bot clica em Salvar e confere no perfil; o que estava lá fica guardado para desfazer</span></label>
+    <div class="li-sel">${sel.length ? sel.map(([k, v]) => `<div><b>${k}</b><span>${esc(v)}</span></div>`).join('') : '<span class="muted">Nada selecionado ainda.</span>'}</div>
+    <div class="li-row"><button class="btn primary" id="li-all" ${sel.length && !liBusy(d) ? '' : 'disabled'}>Aplicar ${sel.length > 1 ? `os ${sel.length} itens` : 'selecionado'}</button>
+      ${sel.length ? '<button class="btn" id="li-clear">Limpar seleção</button>' : ''}</div>
+    ${hist.length ? `<h2 style="margin-top:14px">Últimas mudanças <small>desfazer reaplica o que estava antes</small></h2><div class="li-hist">${hist.slice(0, 6).map((h, i) => `<div><span><b>${lab[h.item] || h.item}</b> · ${esc((h.at || '').slice(0, 16).replace('T', ' '))}</span>
+      ${h.old ? `<button class="btn" data-li-undo="${i}">Desfazer</button>` : '<span class="muted small">sem cópia anterior</span>'}</div>`).join('')}</div>` : ''}
+  </section>`;
+}
+function liBindApplyPanel(d) {
+  const a = $('#li-auto'); if (a) a.addEventListener('change', () => { liStore('auto', a.checked ? '1' : '0'); });
+  const c = $('#li-clear'); if (c) c.addEventListener('click', () => { liSel = {}; liSaveSel(); route(); });
+  const all = $('#li-all'); if (all) all.addEventListener('click', () => {
+    const r = (d.analysis || {}).result || {}, items = [];
+    if (liSel.headline) items.push({item: 'headline', value: liSel.headline});
+    if (liSel.about && (liSel.aboutText || r.about_pt)) items.push({item: 'about', value: liSel.aboutText || r.about_pt});
+    if (liSel.banner) items.push({item: 'banner', name: liSel.banner});
+    if (liSel.photo) items.push({item: 'photo', name: liSel.photo});
+    const auto = liAuto(d);
+    confirmBox('Aplicar no LinkedIn', `${items.length} item(ns): ${items.map(i => ({headline: 'título', about: 'Sobre', banner: 'capa', photo: 'foto'})[i.item]).join(', ')}. ${auto ? 'O bot troca e SALVA sozinho, conferindo cada um no perfil, e guarda o que estava lá para desfazer.' : 'O bot abre cada um e para antes de salvar.'} As candidaturas pausam e voltam sozinhas.`, auto ? 'Trocar e salvar' : 'Abrir')
+      .then(ok => ok && post('/api/linkedin/apply', {items, auto}).then(() => { toast('Aplicando…'); route(); }).catch(e => toast(e.message, true)));
+  });
+  $$('[data-li-undo]').forEach(b => b.addEventListener('click', () => confirmBox('Desfazer', 'O bot volta o LinkedIn para o que estava antes desta mudança (salva sozinho).', 'Desfazer')
+    .then(ok => ok && post('/api/linkedin/undo', {index: +b.dataset.liUndo}).then(() => { toast('Desfazendo…'); route(); }).catch(e => toast(e.message, true)))));
+}
+
+function liAnalise(d) {
+  const a = d.analysis || {}, r = a.result || {}, cur = d.current || {}, m = d.market || {}, applied = a.applied || {};
+  const eng = d.engines.find(e => e.id === liEngine && e.ok) || d.engines.find(e => e.ok);
+  if (eng) liEngine = eng.id;
+  const engCard = e => `<div class="li-eng-wrap"><button class="li-engine" data-li-eng="${e.id}" aria-pressed="${e.id === liEngine}" ${e.ok ? '' : 'disabled'}>
+      <b>${esc(e.label)}</b><span>${e.ok ? esc(e.model || '') : esc(e.why)}</span>
+      <span class="tag ${e.billing === 'assinatura' ? 'free' : ''}">${e.billing === 'assinatura' ? 'pela sua assinatura' : 'por uso (API)'}</span></button>
+      ${e.can_install ? `<button class="btn primary" data-li-install="${e.id}" ${liBusy(d) ? 'disabled' : ''}>Instalar</button>` : ''}
+      ${e.can_login ? `<button class="btn primary" data-li-login="${e.id}">Fazer login</button>` : ''}
+      ${e.installed === false && !e.npm ? `<a class="btn" href="https://nodejs.org/pt" target="_blank" rel="noopener">Baixar o Node.js</a>` : ''}
+      ${e.id === 'anthropic' && !e.ok ? `<span class="muted small">Coloque ANTHROPIC_API_KEY no arquivo .env e reinicie o painel</span>` : ''}</div>`;
+  const models = (d.openai_models || []).map(x => `<option ${x === (liStore('model') || 'gpt-6.1-terra') ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  const bar = x => `<div class="li-bar ${x.have ? '' : 'miss'}"><span>${esc(x.tech)}</span><i><b style="width:${Math.min(100, x.pct)}%"></b></i><span class="n">${x.pct}%</span></div>`;
+  const nt = n => n >= 8 ? 'hi' : n >= 5 ? 'mid' : 'low';
+  const done = k => applied[k] ? `<span class="li-done">aplicado</span>` : '';
+  const opt = (txt, item, label, key) => `<div class="li-opt"><p>${esc(txt)}</p><div class="acts">
+      <button class="btn" data-li-copy="${esc(txt)}">Copiar</button>
+      ${item ? `<button class="btn primary" data-li-apply="${item}" data-li-val="${esc(txt)}" data-li-label="${esc(label)}">Aplicar no LinkedIn</button>
+        <button class="btn ${liSel.headline === txt ? 'primary' : ''}" data-li-pick-h="${esc(txt)}">${liSel.headline === txt ? 'Selecionado ✓' : 'Selecionar'}</button>` : ''} ${key ? done(key) : ''}</div></div>`;
+  $('#li-body').innerHTML = `
+    <section class="panel"><h2>1. Escolha a IA <small>qualquer uma recebe o mesmo pedido; a trava de fatos roda no bot</small></h2>
+      <div class="li-engines">${d.engines.map(engCard).join('')}</div>
+      <div class="li-row">
+        <label ${liEngine === 'openai' ? '' : 'hidden'} id="li-model-wrap">Modelo <select id="li-model">${models}</select></label>
+        <button class="btn primary" id="li-go" ${eng && !liBusy(d) ? '' : 'disabled'}>${a.result ? 'Analisar de novo' : 'Analisar meu perfil'}</button>
+        <span class="muted small">${liEngine === 'openai' ? `conta no teto do mês · sobra R$ ${(d.budget.remaining_brl || 0).toFixed(2).replace('.', ',')}` : 'sem custo de API'}</span>
+      </div>
+      <p class="li-note">Seu LinkedIn atual: ${cur.at ? `lido em ${esc(cur.at.slice(0, 16).replace('T', ' '))}${cur.headline ? ` · título "${esc(cur.headline.slice(0, 70))}"` : ''}` : '<b>ainda não lido</b> (a análise fica melhor com ele)'}
+        · <button class="btn" id="li-read" ${liBusy(d) ? 'disabled' : ''}>Ler do LinkedIn</button>
+        <button class="btn" id="li-paste-open">Colar manualmente</button></p>
+      <form id="li-paste" hidden style="margin-top:10px;display:grid;gap:8px">
+        <input type="text" id="li-p-head" placeholder="Seu título atual" value="${esc(cur.headline || '')}" style="font:inherit;padding:8px 10px;border:1px solid var(--border-2);border-radius:9px">
+        <textarea id="li-p-about" placeholder="Seu Sobre atual">${esc(cur.about || '')}</textarea>
+        <div><button class="btn primary" type="submit">Salvar</button></div></form>
+    </section>
+    <section class="panel"><h2>O que as vagas pedem <small>${m.jobs || 0} vagas de dev dos seus níveis, últimos ${m.days || 60} dias</small></h2>
+      <div class="li-legend"><span><i style="background:var(--green)"></i>você tem</span><span><i style="background:var(--orange)"></i>falta (vira sugestão de estudo, nunca entra no perfil)</span></div>
+      <div class="li-mkt">${(m.top || []).slice(0, 18).map(bar).join('') || '<span class="muted">Sem vagas suficientes ainda.</span>'}</div>
+    </section>
+    ${r.headline ? liApplyPanel(d) + `
+    <section class="panel"><div class="li-score"><span class="big">${r.nota_geral ?? '—'}</span><div><b>Nota do perfil hoje</b><br><span class="muted small">por ${esc(a.engine)} · ${esc(a.model || '')} · ${esc((a.at || '').slice(0, 16).replace('T', ' '))}${a.cost_brl ? ` · R$ ${a.cost_brl.toFixed(4).replace('.', ',')}` : ''}</span></div></div>
+      <div class="li-diag">${(r.diagnostico || []).map(x => `<div><b>${esc(x.secao)}</b><span class="nt ${nt(x.nota)}">${x.nota}/10</span><span>${esc(x.motivo)}<small>${esc(x.acao || '')}</small></span></div>`).join('')}</div>
+      ${(r.warnings || []).map(w => `<p class="li-warn">${esc(w)}</p>`).join('')}
+    </section>
+    <section class="panel"><h2>Título ${done('headline')}</h2><div style="display:grid;gap:10px">${(r.headline || []).map(h => opt(h, 'headline', 'Título', '')).join('')}</div></section>
+    <section class="panel"><h2>Sobre ${done('about')}</h2>
+      <div class="li-tabs" style="margin-bottom:8px"><button data-li-lang="pt" aria-selected="true">Português</button><button data-li-lang="en" aria-selected="false">Inglês</button></div>
+      <textarea id="li-about">${esc(r.about_pt || '')}</textarea>
+      <div class="li-row"><span class="muted small" id="li-about-n"></span><button class="btn" id="li-about-copy">Copiar</button><button class="btn primary" id="li-about-apply">Aplicar no LinkedIn</button>
+        <label><input type="checkbox" id="li-about-sel" ${liSel.about ? 'checked' : ''}> incluir na seleção</label></div>
+      <p class="li-note">A versão em inglês vai no "perfil em outro idioma" do LinkedIn (Adicionar perfil em outro idioma): cole lá.</p></section>
+    <section class="panel"><h2>Experiências <small>cole em cada experiência (editar → descrição)</small></h2>
+      <div style="display:grid;gap:10px">${(r.experiences || []).map(e => opt(`${e.title} · ${e.company}\n` + (e.bullets || []).map(b => '• ' + b).join('\n'), '', '', '')).join('') || '<span class="muted">—</span>'}</div></section>
+    <section class="panel"><h2>Competências <small>em destaque as 3 primeiras</small></h2>
+      <div class="li-chips">${(r.skills || []).map(s => `<span class="${(r.skills_top3 || []).includes(s) ? 'top' : ''}">${esc(s)}</span>`).join('')}</div>
+      <div class="li-row"><button class="btn" data-li-copy="${esc((r.skills || []).join(', '))}">Copiar lista</button></div></section>
+    <section class="panel"><h2>Projetos <small>seção Projetos do LinkedIn</small></h2>
+      <div style="display:grid;gap:10px">${(r.projects || []).map(p => opt(`${p.name}\n${p.description}${p.link ? '\n' + p.link : ''}`, '', '', '')).join('')}</div></section>
+    <section class="panel"><h2>Para estudar e dicas</h2>
+      <div class="li-chips" style="margin-bottom:10px">${(r.estudar || []).map(s => `<span>${esc(s)}</span>`).join('')}</div>
+      <ul style="margin:0;padding-left:18px;display:grid;gap:6px">${(r.dicas || []).map(s => `<li>${esc(s)}</li>`).join('')}</ul></section>` : `
+    <section class="panel"><div class="empty">Escolha a IA e clique em <b>Analisar meu perfil</b>. Leva de 1 a 3 minutos; os textos aparecem aqui.</div></section>`}`;
+  $$('[data-li-eng]').forEach(b => b.addEventListener('click', () => { liEngine = b.dataset.liEng; liStore('engine', liEngine); liAnalise(d); }));
+  $$('[data-li-install]').forEach(b => b.addEventListener('click', () => {
+    const e = d.engines.find(x => x.id === b.dataset.liInstall);
+    confirmBox('Instalar ' + e.label, 'O painel vai baixar e instalar o programa oficial pelo npm (Node.js), uns 50 MB, em 1 a 3 minutos. Depois aparece o botão "Fazer login" para você entrar com a sua conta, uma vez só.', 'Instalar')
+      .then(ok => ok && post('/api/linkedin/install', {tool: e.id}).then(() => route()).catch(x => toast(x.message, true)));
+  }));
+  $$('[data-li-login]').forEach(b => b.addEventListener('click', () => act(b, () => post('/api/linkedin/login', {tool: b.dataset.liLogin})
+    .then(r => { toast('Abri uma janela de login: ' + r.msg); setTimeout(() => { if (currentView() === 'linkedin') route(); }, 20000); }))));
+  const sel = $('#li-model'); if (sel) sel.addEventListener('change', () => liStore('model', sel.value));
+  $('#li-go').addEventListener('click', e => act(e.target, () => post('/api/linkedin/analyze', {engine: liEngine, model: liEngine === 'openai' ? $('#li-model').value : ''}).then(() => route()), 'Análise iniciada'));
+  $('#li-read').addEventListener('click', () => confirmBox('Ler seu LinkedIn', 'O bot abre o seu perfil no navegador dele e só LÊ o título, o Sobre e a página. Se as candidaturas estiverem rodando, pausam e voltam sozinhas.', 'Ler agora')
+    .then(ok => ok && post('/api/linkedin/read', {}).then(() => route()).catch(e => toast(e.message, true))));
+  $('#li-paste-open').addEventListener('click', () => { $('#li-paste').hidden = !$('#li-paste').hidden; });
+  $('#li-paste').addEventListener('submit', e => { e.preventDefault(); act(null, () => post('/api/linkedin/paste', {headline: $('#li-p-head').value, about: $('#li-p-about').value}).then(() => route()), 'Salvo'); });
+  $$('[data-li-copy]').forEach(b => b.addEventListener('click', () => liCopy(b.dataset.liCopy)));
+  $$('[data-li-apply]').forEach(b => b.addEventListener('click', () => liApply(b.dataset.liApply, {value: b.dataset.liVal}, b.dataset.liLabel, d)));
+  $$('[data-li-pick-h]').forEach(b => b.addEventListener('click', () => { liSel.headline = liSel.headline === b.dataset.liPickH ? '' : b.dataset.liPickH; liSaveSel(); route(); }));
+  liBindApplyPanel(d);
+  const ab = $('#li-about');
+  if (ab) {
+    let lang = 'pt'; const count = () => { $('#li-about-n').textContent = `${ab.value.length} de 2.600 caracteres`; };
+    ab.addEventListener('input', count); count();
+    $$('[data-li-lang]').forEach(b => b.addEventListener('click', () => { lang = b.dataset.liLang; $$('[data-li-lang]').forEach(x => x.setAttribute('aria-selected', x === b)); ab.value = lang === 'en' ? (r.about_en || '') : (r.about_pt || ''); count(); }));
+    $('#li-about-copy').addEventListener('click', () => liCopy(ab.value));
+    $('#li-about-apply').addEventListener('click', () => liApply('about', {value: ab.value}, 'Sobre', d));
+    ab.addEventListener('change', () => { if (liSel.about) { liSel.aboutText = ab.value; liSaveSel(); } });
+    $('#li-about-sel').addEventListener('change', e => { liSel.about = e.target.checked; liSel.aboutText = ab.value; liSaveSel(); });
+  }
+}
+
+function liBindPick() {
+  $$('[data-li-pickimg]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.liKind; liSel[k] = liSel[k] === b.dataset.liPickimg ? '' : b.dataset.liPickimg; liSaveSel(); route(); toast(liSel[k] ? 'Selecionada: aplique na aba Análise e textos' : 'Seleção removida'); }));
+}
+function liCostBox(d, q, refs) {
+  const v = (d.image_cost[q] || 0) + refs * (d.image_ref_brl || 0.11);
+  const lvl = v >= 1 ? 'high' : v >= 0.25 ? 'mid' : '';
+  return `<div class="li-cost ${lvl}">Custo estimado: ~R$ ${v.toFixed(2).replace('.', ',')} por imagem · sobra R$ ${(d.budget.remaining_brl || 0).toFixed(2).replace('.', ',')} do teto do mês</div>`;
+}
+
+function liGallery(d, kind) {
+  const list = (d.images || []).filter(i => i.kind === kind);
+  if (!list.length) return '<span class="muted">Nenhuma ainda.</span>';
+  return `<div class="li-gal ${kind === 'foto' ? 'photos' : ''}">${list.map(i => `<div class="li-img ${kind === 'foto' ? 'photo' : ''}">
+    <img src="${liImg(i.name)}" alt="${kind}" loading="lazy">
+    <div class="acts"><button class="btn primary" data-li-useimg="${esc(i.name)}">Aplicar</button>
+      <button class="btn ${liSel[kind === 'capa' ? 'banner' : 'photo'] === i.name ? 'primary' : ''}" data-li-pickimg="${esc(i.name)}" data-li-kind="${kind === 'capa' ? 'banner' : 'photo'}">${liSel[kind === 'capa' ? 'banner' : 'photo'] === i.name ? 'Selecionada ✓' : 'Selecionar'}</button>
+      <a class="btn" href="${liImg(i.name)}" download="${esc(i.name)}">Baixar</a></div></div>`).join('')}</div>`;
+}
+
+function liCapa(d) {
+  const st = liStore('style') || 'gradiente', q = liStore('q') || d.image_quality;
+  $('#li-body').innerHTML = `
+    <section class="panel"><h2>Capa (1584 × 396) <small>o texto fica à direita: a foto de perfil cobre o canto esquerdo</small></h2>
+      <div class="li-tabs">${d.styles.map(s => `<button data-li-style="${s}" aria-selected="${s === st}">${s}</button>`).join('')}</div>
+      <div class="li-row"><input type="text" id="li-c-title" placeholder="Título (padrão: o do perfil)" style="min-width:260px">
+        <input type="text" id="li-c-tag" placeholder="Frase (padrão: Criador do seu 1º projeto)" style="min-width:260px">
+        <button class="btn primary" id="li-c-go">Gerar capa (grátis)</button></div>
+      <p class="li-note">Fundo com IA (opcional): gera só a arte de fundo e o bot escreve o texto por cima, sem letra torta.</p>
+      <div class="li-row"><select id="li-c-q">${['low', 'medium', 'high'].map(x => `<option value="${x}" ${x === q ? 'selected' : ''}>qualidade ${x === 'low' ? 'baixa' : x === 'medium' ? 'média' : 'alta'}</option>`).join('')}</select>
+        <button class="btn" id="li-c-ai" ${liBusy(d) ? 'disabled' : ''}>Gerar fundo com IA</button></div><div id="li-c-cost" style="margin-top:8px">${liCostBox(d, q, 0)}</div>
+    </section>
+    <section class="panel"><h2>Suas capas</h2>${liGallery(d, 'capa')}</section>`;
+  let style = st;
+  $$('[data-li-style]').forEach(b => b.addEventListener('click', () => { style = b.dataset.liStyle; liStore('style', style); $$('[data-li-style]').forEach(x => x.setAttribute('aria-selected', x === b)); }));
+  $('#li-c-q').addEventListener('change', e => { liStore('q', e.target.value); $('#li-c-cost').innerHTML = liCostBox(d, e.target.value, 0); });
+  $('#li-c-go').addEventListener('click', e => act(e.target, () => post('/api/linkedin/banner', {style, title: $('#li-c-title').value, tagline: $('#li-c-tag').value}).then(() => route()), 'Capa gerada'));
+  $('#li-c-ai').addEventListener('click', e => act(e.target, () => post('/api/linkedin/image-ai', {mode: 'capa', quality: $('#li-c-q').value}).then(() => route())));
+  $$('[data-li-useimg]').forEach(b => b.addEventListener('click', () => liApply('banner', {name: b.dataset.liUseimg}, 'imagem de capa', d)));
+  liBindPick();
+}
+
+function liFoto(d) {
+  const originals = (d.images || []).filter(i => i.kind === 'original');
+  if (!liPhoto && originals.length) liPhoto = originals[0].name;
+  const q = liStore('q') || d.image_quality;
+  const sl = (k, label, min, max, step, val) => `<label>${label}<input type="range" data-li-sl="${k}" min="${min}" max="${max}" step="${step}" value="${val}"><span data-li-v="${k}">${val}</span></label>`;
+  $('#li-body').innerHTML = `
+    <section class="panel"><h2>1. Sua foto <small>use uma foto real, de frente, com boa luz</small></h2>
+      <div class="li-row"><input type="file" id="li-f-up" accept="image/png,image/jpeg,image/webp">
+        ${originals.length ? `<select id="li-f-src">${originals.map(o => `<option ${o.name === liPhoto ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>` : ''}</div>
+    </section>
+    <section class="panel" ${liPhoto ? '' : 'hidden'}><h2>2. Melhorar sem IA <small>recorte, centralização, luz e cor; é você de verdade</small></h2>
+      <div class="li-photo-edit"><div class="li-prev"><img id="li-f-prev" src="${liPhoto ? liImg(liPhoto) : ''}" alt="prévia"></div>
+        <div><div class="li-sliders">${sl('x', 'Horizontal', 0, 100, 1, 50)}${sl('y', 'Vertical', 0, 100, 1, 40)}${sl('zoom', 'Zoom', 1, 3, 0.05, 1.1)}
+          ${sl('brightness', 'Brilho', 0.7, 1.4, 0.01, 1.05)}${sl('contrast', 'Contraste', 0.7, 1.4, 0.01, 1.06)}${sl('saturate', 'Cor', 0.5, 1.5, 0.01, 1.05)}</div>
+          <div class="li-row"><button class="btn primary" id="li-f-go">Gerar foto (grátis)</button></div></div></div>
+    </section>
+    <section class="panel" ${liPhoto ? '' : 'hidden'}><h2>3. Com IA (opcional) <small>só pela API da OpenAI; você aprova antes de aplicar</small></h2>
+      <div class="li-row"><select id="li-f-mode"><option value="fundo">Trocar só o fundo (mantém você igual)</option><option value="retrato">Retrato de estúdio a partir das suas fotos</option></select>
+        <select id="li-f-q">${['low', 'medium', 'high'].map(x => `<option value="${x}" ${x === q ? 'selected' : ''}>qualidade ${x === 'low' ? 'baixa' : x === 'medium' ? 'média' : 'alta'}</option>`).join('')}</select>
+        <button class="btn" id="li-f-ai" ${liBusy(d) ? 'disabled' : ''}>Gerar com IA</button></div>
+      <div id="li-f-cost" style="margin-top:8px">${liCostBox(d, q, 1)}</div>
+      <p class="li-note">No retrato, o resultado às vezes fica "parecido, mas não é você": confira antes de usar. O bot nunca gera rosto de outra pessoa.</p>
+    </section>
+    <section class="panel"><h2>Suas fotos</h2>${liGallery(d, 'foto')}</section>`;
+  const vals = {x: 50, y: 40, zoom: 1.1, brightness: 1.05, contrast: 1.06, saturate: 1.05};
+  const prev = () => { const im = $('#li-f-prev'); if (!im) return;
+    im.style.objectPosition = `${vals.x}% ${vals.y}%`; im.style.transformOrigin = `${vals.x}% ${vals.y}%`; im.style.transform = `scale(${vals.zoom})`;
+    im.style.filter = `brightness(${vals.brightness}) contrast(${vals.contrast}) saturate(${vals.saturate})`; };
+  $$('[data-li-sl]').forEach(s => s.addEventListener('input', () => { vals[s.dataset.liSl] = +s.value; $(`[data-li-v="${s.dataset.liSl}"]`).textContent = s.value; prev(); }));
+  prev();
+  $('#li-f-up').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return;
+    if (f.size > 12 * 1024 * 1024) return toast('Foto maior que 12 MB', true);
+    const rd = new FileReader(); rd.onload = () => act(null, () => post('/api/linkedin/upload', {data: rd.result}).then(r => { liPhoto = r.name; route(); }), 'Foto enviada'); rd.readAsDataURL(f); });
+  const src = $('#li-f-src'); if (src) src.addEventListener('change', () => { liPhoto = src.value; route(); });
+  const go = $('#li-f-go'); if (go) go.addEventListener('click', e => act(e.target, () => post('/api/linkedin/photo', Object.assign({name: liPhoto}, vals)).then(() => route()), 'Foto gerada'));
+  const fq = $('#li-f-q'); if (fq) fq.addEventListener('change', () => { liStore('q', fq.value); $('#li-f-cost').innerHTML = liCostBox(d, fq.value, $('#li-f-mode').value === 'retrato' ? Math.min(3, originals.length) : 1); });
+  const ai = $('#li-f-ai'); if (ai) ai.addEventListener('click', e => {
+    const mode = $('#li-f-mode').value, names = mode === 'retrato' ? originals.slice(0, 3).map(o => o.name) : [liPhoto];
+    act(e.target, () => post('/api/linkedin/image-ai', {mode, names, quality: $('#li-f-q').value}).then(() => route()));
+  });
+  $$('[data-li-useimg]').forEach(b => b.addEventListener('click', () => liApply('photo', {name: b.dataset.liUseimg}, 'foto de perfil', d)));
+  liBindPick();
+}
+
 // cada navegação ganha um número: se uma tela lenta (eventos, cursos) terminar depois de você ter trocado de tela,
 // o resultado dela é descartado em vez de sobrescrever a tela atual
 // ---------- movimento: um momento só por tela (entrada em cascata) + números que contam ----------

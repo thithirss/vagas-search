@@ -439,7 +439,7 @@ SUBMIT_RE = re.compile(
 )
 NEXT_RE = re.compile(
     r"^(avan[cç]ar|pr[oó]xim[oa]( etapa| passo)?|continuar( inscri[cç][aã]o| candidatura| cadastro)?|next( step)?|continue( to next step)?|"
-    r"revisar( candidatura| sua candidatura)?|avaliar( candidatura| sua candidatura)?|review( your application)?|salvar e continuar|save and continue|prosseguir|seguir|ok|confirmar|confirm|"
+    r"revisar( candidatura| sua candidatura)?|avaliar( candidatura| sua candidatura)?|review( your application)?|salvar e continuar|save and continue|prosseguir|ok|confirmar|confirm|"
     r"verificar (a |sua |minha )?(candidatura|inscri[cç][aã]o)|check (your )?application|"
     r"iniciar|come[cç]ar|start|begin|responder( agora| (as )?perguntas| question[aá]rio)?|answer( now)?|vamos l[aá]|"
     r"continuar (assim|mesmo) (mesmo|assim)|continue anyway|sim, continuar|prosseguir (assim|mesmo) (mesmo|assim))$",
@@ -452,7 +452,10 @@ CONFIRM_EMAIL_RE = re.compile(
     re.I,
 )
 BAD_RE = re.compile(r"voltar|back|cancel|sair|descartar|discard|fechar|close|remover|remove|excluir|delete|editar|edit|login|entrar|sign in|cadastr|"
-                    r"^\s*(buscar|pesquisar|search|filtrar|procurar)\b|achar vagas|find jobs|encontrar vagas|assinar|subscribe|newsletter|compartilh|share", re.I)
+                    r"^\s*(buscar|pesquisar|search|filtrar|procurar)\b|achar vagas|find jobs|encontrar vagas|assinar|subscribe|newsletter|compartilh|share|"
+                    # "Seguir" = seguir perfil/empresa (X, LinkedIn), nunca avançar: a Kraken mandou o link de candidatura
+                    # para x.com/krakenfx e o laço clicou "Seguir" 16 vezes (13/11)
+                    r"^\s*(seguir|seguindo|deixar de seguir|follow|following|unfollow)\b", re.I)
 
 SUCCESS_RE = re.compile(
     r"candidatura (foi )?(enviada|realizada|conclu[ií]da|recebida|efetuada|finalizada|registrada|feita|submetida)|candidatura submetida|application (sent|submitted|received|complete)|"

@@ -423,6 +423,52 @@ def etapas(retry: Optional[int] = typer.Option(None, "--id", help="tentar de nov
 
 
 @app.command()
+def linkedin(acao: str = typer.Argument(..., help="ler | aplicar"),
+             item: str = typer.Option("", "--item", help="headline | about | photo | banner"),
+             texto: str = typer.Option("", "--texto-arquivo", help="arquivo com o texto a preencher"),
+             arquivo: str = typer.Option("", "--arquivo", help="imagem (foto/capa) a carregar"),
+             religar: bool = typer.Option(False, "--religar", help="religar as candidaturas no fim (o painel as pausou)"),
+             auto: bool = typer.Option(False, "--auto", help="salvar sozinho (sem isso, para antes de Salvar e espera você)"),
+             lote: str = typer.Option("", "--lote", help="JSON com vários itens [{item, value|file}]")):
+    """Tela LinkedIn: lê o seu perfil (só leitura) ou aplica título/Sobre/foto/capa (assistido ou automático, com backup)."""
+    from . import linkedin_profile as lp
+    rt = Runtime(stop_grace=5)
+    try:
+        page = rt.browser.page()
+        if acao == "ler":
+            lp.set_status("lendo", "lendo o seu perfil no LinkedIn")
+            cur = lp.read_current(page)
+            lp.set_status("ok", f"perfil lido (título: {cur.get('headline', '')[:60]})")
+            console.print(f"título: {cur.get('headline', '')}\nsobre: {len(cur.get('about', ''))} caracteres")
+        elif acao == "aplicar":
+            if lote:
+                items = json.loads(Path(lote).read_text(encoding="utf-8"))
+            else:
+                items = [{"item": item, "value": Path(texto).read_text(encoding="utf-8") if texto else "", "file": arquivo}]
+            lp.set_status("aplicando", ("aplicando sozinho: " if auto else "preencha/revise no navegador do bot e clique em Salvar: ")
+                          + ", ".join(i["item"] for i in items))
+            res = lp.apply_batch(page, items, auto=auto, llm=rt.llm, log=lambda m: console.print(f"  {m}"))
+            ok = [r for r in res if r.get("saved")]
+            lp.set_status("ok" if len(ok) == len(res) else "erro",
+                          " · ".join(f"{r['item']}: {r['msg']}" for r in res), results=res)
+            console.print(res)
+        else:
+            raise typer.BadParameter("use: ler | aplicar")
+    except Exception as e:
+        lp.set_status("erro", str(e)[:200])
+        raise
+    finally:
+        rt.close()
+        if religar:
+            try:
+                from .dashboard import start_task
+                start_task("run", {}, ignore_busy=("linkedin",))
+                console.print("candidaturas religadas")
+            except Exception as e:
+                console.print(f"[red]não consegui religar as candidaturas: {e}[/]")
+
+
+@app.command()
 def retornos(dias: Optional[int] = typer.Option(None, "--dias", help="reler os últimos N dias (padrão: desde a última varredura)")):
     """Lê o Gmail (senha de app, só leitura) e registra os retornos das empresas: positivo, negativo, em processo."""
     from . import inbox
