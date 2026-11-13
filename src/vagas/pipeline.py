@@ -825,6 +825,12 @@ class Pipeline:
             self.pacer.mark_limit_hit(job)
             job.status, job.reason = "queued", res.reason
             self.db.save_job(job)
+        elif res.status == "blocked":
+            # o SITE barrou o robô (Cloudflare do Indeed), não a vaga: devolve a tentativa e pausa a fonte
+            job.attempts = max(0, job.attempts - 1)
+            job.status, job.reason = "queued", f"{res.reason}; Indeed em pausa"
+            self.db.save_job(job)
+            self.block_source(job.source, res.reason)
         else:
             job.status = "queued" if job.attempts < self.s.apply.max_attempts else "failed"
             job.reason = res.reason
@@ -839,6 +845,25 @@ class Pipeline:
         rank = preferred.index(level) if level in preferred else len(preferred)
         # companhia aérea fura a fila (trilha especial pedida pelo usuário)
         return (0 if self._airline(job) else 1, rank, -int((job.classification or {}).get("fit_score") or 0), job.discovered_at)
+
+    def block_source(self, source: str, reason: str) -> None:
+        """Pausa uma fonte inteira (hoje só o Indeed) por `limits.indeed_block_hours` e avisa uma vez no Telegram."""
+        hours = float(self.s.limits.indeed_block_hours or 0)
+        if hours <= 0:
+            return
+        until = (datetime.now() + timedelta(hours=hours)).isoformat(timespec="seconds")
+        already = self.source_blocked(source)
+        self.db.kv_set(f"source_block:{source}", until)
+        if not already:
+            console.print(f"[yellow]  {source} em pausa até {until[11:16]} ({reason}); as vagas dele continuam na fila[/]")
+            notify(f"⚠️ O {source.capitalize()} pediu verificação humana (Cloudflare/login). Pausei as vagas dele até "
+                   f"{until[11:16]}. Se quiser destravar antes, abra o painel → Abrir no navegador do bot, entre no "
+                   f"{source}.com e confirme o 'sou humano'.")
+
+    def source_blocked(self, source: str) -> str:
+        """Até quando a fonte está em pausa (ISO) ou "" se liberada."""
+        until = self.db.kv_get(f"source_block:{source}") or ""
+        return until if until and until > datetime.now().isoformat(timespec="seconds") else ""
 
     def process_queue(self, limit: int | None = None, job_ids: list[str] | None = None, force: bool = False) -> RunSummary:
         summary = RunSummary()
@@ -866,6 +891,8 @@ class Pipeline:
             if not job_ids and not self.pacer.in_active_hours():   # vaga pedida explicitamente (--job) roda a qualquer hora
                 summary.stopped_reason = "fora da janela ativa"
                 break
+            if not job_ids and self.source_blocked(job.source):
+                continue   # Indeed em pausa (Cloudflare): fica na fila, sem tentativa gasta
             ok, why = self.pacer.can_apply(job)
             if not ok:
                 if "total" in why:
@@ -905,7 +932,8 @@ class Pipeline:
             except Exception as e:
                 res = FlowResult("failed", f"erro inesperado: {e}")
                 self.db.set_status(job.id, "queued" if job.attempts < self.s.apply.max_attempts else "failed", res.reason)
-            color = {"applied": "green", "already_applied": "green", "dry_run": "blue", "needs_user": "yellow", "skipped": "dim"}.get(res.status, "red")
+            color = {"applied": "green", "already_applied": "green", "dry_run": "blue", "needs_user": "yellow", "skipped": "dim",
+                     "blocked": "yellow"}.get(res.status, "red")
             console.print(f"   [{color}]{res.status}[/] {res.reason}")
             summary.items.append((job.id, res.status, res.reason))
             if res.status == "applied":

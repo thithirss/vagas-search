@@ -131,6 +131,9 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
     for step in range(max_steps):
         cp = ctx.browser.detect_checkpoint(page)
         if cp and not ctx.browser.wait_for_human(page, f"resolver {cp} para continuar a candidatura"):
+            if "indeed.com" in (page.url or ""):
+                # Cloudflare/login do Indeed: não é falha da vaga — o Indeed inteiro está barrando o robô agora
+                return FlowResult("blocked", f"Indeed pediu verificação ({cp})", step, answers_log)
             return FlowResult("failed", f"checkpoint não resolvido: {cp}", step, answers_log)
         dismiss_cookies(page)
         if pre_step:
@@ -349,6 +352,23 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
             if forms.close_open_dropdowns(scope) and forms.find_action_button(scope, root_for_scope, include_disabled=True) is not None:
                 console.print(f"[dim]  etapa {step}: fechei uma lista aberta que cobria a página[/]")
                 continue
+            # plano B: a IA barata (ou o que já funcionou neste site) escolhe onde clicar
+            from .. import rescue
+            rs = rescue.pick(ctx, page, job, "advance", fields)
+            if rs.action == "click":
+                if ctx.dry_run and rescue.would_commit(rs):
+                    forms.dump_learn(page, job.id, ats, fields, "dry_run (não enviado)", step)
+                    return FlowResult("dry_run", f"dry-run: plano B pararia antes de '{rs.text[:40]}'", step + 1, answers_log)
+                rs = rescue.click(ctx, page, job, "advance", rs)
+                if rs.action == "click":
+                    answers_log.append({"q": "plano B (clique)", "a": rs.text[:80], "source": rs.source, "ok": True})
+                    if rs.page is not None and rs.page is not page:
+                        page = rs.page
+                    continue
+            elif rs.situation == "encerrada":
+                return FlowResult("skipped", f"vaga encerrada (plano B: {rs.reason[:60]})", step, answers_log)
+            elif rs.situation == "enviada" and step > 0 and rescue.looks_sent(page):
+                return FlowResult("applied", f"enviada (plano B leu a confirmação: {rs.reason[:60]})", step + 1, answers_log)
             console.print(f"[dim]  etapa {step}: sem avanço — botões visíveis: {textos[:4]} · perguntas: "
                           f"{[(f.q.label[:28], f.q.kind, bool(f.is_filled)) for f in perguntas][:3]}[/]")
             forms.dump_learn(page, job.id, ats, fields, "sem botão de avançar/enviar", step)

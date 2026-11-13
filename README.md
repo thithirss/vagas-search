@@ -272,6 +272,17 @@ Toda candidatura que falha ou fica pendente gera um dump em `data/learn/<ats>/<j
 
 Fluxo típico pra "ensinar" um ATS novo: `vagas apply --job <id> --interactive --dry-run` → olhar `data/learn` → ajustar → repetir.
 
+**Plano B com IA barata (aprende sozinho por site):** quando as regras não acham o botão de candidatar ou de avançar,
+o `cheap_model` recebe a lista de botões visíveis da tela (sem dados seus) e escolhe qual clicar
+(~R$ 0,002 por consulta, até `llm.rescue_max_per_job` por vaga, dentro do teto do mês). Nunca clica em login social,
+alerta, compartilhar, cancelar ou "minhas candidaturas", e no `--dry-run` para antes de qualquer clique que registraria
+a candidatura. Se o clique mudou a página, o texto do botão fica gravado para aquele site (`kv rescue:<site>:<objetivo>`)
+e da próxima vez o mesmo site passa **sem IA**. Desliga com `llm.rescue_enabled: false`.
+
+**Indeed com Cloudflare:** quando o Indeed pede "Confirme que é humano" ou login, a vaga volta para a fila sem gastar
+tentativa e o Indeed fica em pausa por `limits.indeed_block_hours` (aviso no Telegram). Para destravar antes, entre no
+Indeed pelo navegador do bot (painel → Abrir no navegador do bot) e confirme. O robô nunca resolve captcha.
+
 ## Anti-bloqueio (o que está implementado)
 
 - Perfil persistente com sua sessão real; janela visível; flags de automação removidas; Patchright (fecha vazamentos de CDP como `Runtime.enable` e `navigator.webdriver`).

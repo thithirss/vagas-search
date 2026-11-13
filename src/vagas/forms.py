@@ -500,7 +500,7 @@ class FormField:
 
 @dataclass
 class FlowResult:
-    status: str                 # applied | failed | needs_user | dry_run | already_applied | limit
+    status: str                 # applied | failed | needs_user | dry_run | already_applied | limit | blocked (site barrou o robô)
     reason: str = ""
     steps: int = 0
     answers: list[dict] = field(default_factory=list)

@@ -26,6 +26,7 @@ class ApplyContext:
     interactive: bool = False
     pause_before_submit: bool = False
     confirm: Callable[[str], bool] | None = None   # usado com pause_before_submit
+    rescues: int = 0   # quantas vezes o plano B (vagas/rescue.py) já agiu nesta candidatura
     _resume_cache: Path | None = field(default=None, init=False, repr=False)
     _resume_done: bool = field(default=False, init=False, repr=False)
 

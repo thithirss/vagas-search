@@ -224,21 +224,26 @@ class DB:
             pass
         self.conn.executescript(SCHEMA)
         # migração: tokens de entrada em cache custam 1/4 (preço real do gasto)
-        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(llm_usage)")}
-        if "cached_tokens" not in cols:
-            self.conn.execute("ALTER TABLE llm_usage ADD COLUMN cached_tokens INTEGER DEFAULT 0")
+        self._add_columns("llm_usage", ["cached_tokens"], "INTEGER DEFAULT 0")
         # próximas etapas (vagas/nextsteps.py): tipo, link da etapa, prazo, kit de preparação e rascunho de resposta
-        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(email_responses)")}
-        for col in ("kind", "action_url", "deadline", "prep", "reply_draft", "reply_state", "message_id", "reply_to",
-                    "reminded", "auto_state"):
-            if col not in cols:
-                self.conn.execute(f"ALTER TABLE email_responses ADD COLUMN {col} TEXT")
+        self._add_columns("email_responses", ["kind", "action_url", "deadline", "prep", "reply_draft", "reply_state",
+                                              "message_id", "reply_to", "reminded", "auto_state"])
         # entrevistas: qual modelo gerou a preparação e quanto custou de verdade (tela Entrevistas)
-        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(interviews)")}
-        for col in ("prep_model", "prep_cost"):
-            if col not in cols:
-                self.conn.execute(f"ALTER TABLE interviews ADD COLUMN {col} TEXT")
+        self._add_columns("interviews", ["prep_model", "prep_cost"])
         self.conn.commit()
+
+    def _add_columns(self, table: str, names: list[str], kind: str = "TEXT") -> None:
+        """Migração tolerante a corrida: o painel abre o banco em várias threads ao mesmo tempo (pré-carga, túnel,
+        Telegram) e duas podem tentar o mesmo ALTER; "duplicate column" significa que a outra já fez."""
+        cols = {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+        for col in names:
+            if col in cols:
+                continue
+            try:
+                self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {kind}")
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    raise
 
     # ---------- jobs ----------
     def upsert_job(self, job: Job) -> bool:

@@ -123,6 +123,25 @@ class LLM:
                 time.sleep(2 * (attempt + 1))
         raise RuntimeError(f"LLM falhou ({purpose}): {last_err}")
 
+    # ---------- plano B do formulário ----------
+    def pick_action(self, *, goal: str, page: dict, elements: list[dict]) -> dict:
+        """Escolhe o elemento que leva a candidatura adiante (vagas/rescue.py). Barato: ~1-2 mil tokens."""
+        system = (
+            "Você guia um robô que está se candidatando a UMA vaga de emprego no site de uma empresa. Recebe o estado "
+            "da página e a lista numerada dos elementos clicáveis visíveis. Escolha o ÚNICO elemento que leva a "
+            f"candidatura adiante. Objetivo agora: {goal}.\n"
+            "Nunca escolha: login com Google/Facebook/Apple/LinkedIn, criar alerta, salvar/favoritar vaga, compartilhar, "
+            "outras vagas, voltar, cancelar, sair, chat/WhatsApp, trocar idioma, rejeitar/configurar cookies, política, "
+            "termos, vídeo, mapa. 'Aceitar cookies' só quando nada mais servir.\n"
+            "Se a página diz que a candidatura já foi enviada, que a vaga foi encerrada, que é preciso criar conta/senha "
+            "para continuar, ou se nenhum elemento serve, use index null.\n"
+            'Responda SÓ JSON: {"index": número ou null, "acao": "candidatar"|"avancar"|"enviar"|"aceitar_cookies"|'
+            '"nenhuma", "situacao": "normal"|"enviada"|"encerrada"|"exige_conta"|"sem_saida", "motivo": "até 15 palavras"}. '
+            '"enviar" = o clique envia a candidatura final.'
+        )
+        user = json.dumps({"pagina": page, "elementos": elements}, ensure_ascii=False)
+        return self.json(model=self.cfg.cheap_model, system=system, user=user, purpose="rescue", temperature=0, max_tokens=200)
+
     # ---------- classificação ----------
     def classify_job(self, *, title: str, company: str, location: str, description: str,
                      apply_roles: list[str], exclude_roles: list[str], candidate_summary: str) -> dict:

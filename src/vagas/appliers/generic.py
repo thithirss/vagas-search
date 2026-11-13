@@ -207,6 +207,33 @@ class GenericApplier(Applier):
                 pass
             time.sleep(0.7)
 
+    def _rescue_apply(self, ctx: ApplyContext, page: Page, job: Job):
+        """Sem formulário nem botão conhecido: plano B (vagas/rescue.py) escolhe onde clicar para abrir a candidatura.
+        Devolve a página com o formulário ou um FlowResult final."""
+        from .. import rescue
+        for _ in range(2):
+            rs = rescue.pick(ctx, page, job, "apply")
+            if rs.action != "click":
+                if rs.situation == "encerrada":
+                    return FlowResult("skipped", f"vaga encerrada (plano B: {rs.reason[:60]})")
+                if rs.situation == "exige_conta":
+                    ctx.db.add_pending_question(job.id, f"O site exige conta para candidatar. Crie a conta e recoloque a vaga na fila: {page.url}", "link", [], "")
+                    return FlowResult("needs_user", "site exige conta para candidatar (plano B; pendência criada)")
+                break
+            if ctx.dry_run and rescue.would_commit(rs) and rs.kind == "enviar":
+                return FlowResult("dry_run", f"dry-run: plano B pararia antes de '{rs.text[:40]}'")
+            rs = rescue.click(ctx, page, job, "apply", rs)
+            if rs.action != "click":
+                break
+            page = rs.page or page
+            self._wait_render(page)
+            dismiss_cookies(page)
+            _, fields = forms.best_scope(page)
+            if fields or forms.find_action_button(page):
+                return page
+        forms.dump_learn(page, job.id, self.name, [], "não achei formulário")
+        return FlowResult("failed", "não achei formulário de candidatura")
+
     def apply(self, ctx: ApplyContext, page: Page, job: Job) -> FlowResult:
         if previous := ctx.db.previous_application(job, target_url=page.url):
             return FlowResult("already_applied", f"mesma vaga já aplicada: {previous.id}")
@@ -268,8 +295,9 @@ class GenericApplier(Applier):
                 self._wait_render(target2)
                 _, fields = forms.best_scope(target2)
                 if len(fields) < 1 and not forms.find_action_button(target2):
-                    forms.dump_learn(target2, job.id, self.name, [], "não achei formulário")
-                    return FlowResult("failed", "não achei formulário de candidatura")
+                    target2 = self._rescue_apply(ctx, target2, job)
+                    if isinstance(target2, FlowResult):
+                        return target2
                 target = target2
         res = run_form_flow(ctx, target, job, ats=self.name)
         if res.status == "applied":

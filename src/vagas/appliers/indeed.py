@@ -33,6 +33,23 @@ def _first_visible(page: Page, sels: list[str]):
     return None
 
 
+def blocked(ctx: ApplyContext, page: Page) -> FlowResult | None:
+    """Cloudflare ("Verificação adicional necessária") ou login do Indeed que não saiu sozinho.
+
+    O robô não resolve captcha (regra do projeto). Antes isso virava "link para site da empresa não
+    encontrado"/"site externo não abriu" e queimava a vaga; ~100 falhas em 2 semanas eram isso.
+    Agora devolve "blocked": a vaga volta para a fila sem gastar tentativa e o Indeed pausa.
+    """
+    try:
+        cp = ctx.browser.detect_checkpoint(page)
+    except Exception:
+        cp = None
+    if cp and "indeed.com" in (page.url or ""):
+        forms.dump_learn(page, f"indeed_block_{cp}", "indeed", [], f"Indeed bloqueou: {cp}", 0)
+        return FlowResult("blocked", f"Indeed pediu verificação ({cp})")
+    return None
+
+
 class IndeedApplyApplier(Applier):
     name = "indeed_apply"
 
@@ -40,6 +57,8 @@ class IndeedApplyApplier(Applier):
         if job.external_id not in page.url:
             ctx.browser.goto(page, job.url)
             h.medium()
+        if b := blocked(ctx, page):
+            return b
         if already_applied(page):
             return FlowResult("already_applied", "Indeed marca esta vaga como já aplicada")
         btn = _first_visible(page, APPLY_SELS)
@@ -60,7 +79,7 @@ class IndeedApplyApplier(Applier):
                 h.medium()
         h.medium()
         if not ctx.browser.ensure_ok(target):
-            return FlowResult("failed", "checkpoint no Indeed não resolvido")
+            return blocked(ctx, target) or FlowResult("failed", "checkpoint no Indeed não resolvido")
 
         def pre_step(p: Page, step: int) -> None:
             # prefere enviar o currículo adaptado em vez do currículo salvo no Indeed
@@ -91,6 +110,8 @@ class IndeedExternalApplier(Applier):
         if job.external_id not in page.url:
             ctx.browser.goto(page, job.url)
             h.medium()
+        if b := blocked(ctx, page):
+            return b
         # anúncio removido ("Não encontrada | Indeed"): não é falha do robô
         try:
             if forms.CLOSED_RE.search(page.title() or "") or forms.CLOSED_RE.search(forms.page_text(page)[:1500]) or re.search(r"n[aã]o encontrada|n[aã]o foi poss[ií]vel encontrar|this job has expired|job not found", (page.title() or "") + " " + forms.page_text(page)[:800], re.I):
@@ -116,6 +137,8 @@ class IndeedExternalApplier(Applier):
                 except Exception:
                     pass
             if newp is None:
+                if b := blocked(ctx, page):
+                    return b
                 forms.dump_learn(page, job.id, "indeed", [], "link para site da empresa não encontrado", 0)
                 return FlowResult("failed", "link para site da empresa não encontrado")
         else:
@@ -129,6 +152,9 @@ class IndeedExternalApplier(Applier):
                 if "indeed.com" not in page.url:
                     newp = page
         if newp is None:
+            if b := blocked(ctx, page):
+                return b
+            forms.dump_learn(page, job.id, "indeed", [], "site externo não abriu", 0)   # antes saía sem dump: 60 falhas sem pista
             return FlowResult("failed", "site externo não abriu")
         h.medium()
         job.external_url = newp.url

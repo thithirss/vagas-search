@@ -139,6 +139,8 @@ class Limits(BaseModel):
     active_hours: tuple[str, str] = ("08:00", "23:30")
     discovery_interval_minutes: int = 120
     inbox_interval_minutes: int = 30   # leitura do Gmail (retornos) enquanto o bot roda, inclusive fora da janela ativa
+    # Indeed barrou o robô (Cloudflare/login): pausa as vagas do Indeed por N horas, sem gastar tentativa
+    indeed_block_hours: float = 3.0
     max_form_steps: int = 12
     human_checkpoint_timeout_minutes: int = 15
     checkpoint_auto_seconds: int = 45     # espera curta quando não há ninguém no teclado (depois pula a vaga)
@@ -178,6 +180,10 @@ class LLMCfg(BaseModel):
     rules_min_confidence: float = 0.75
     # Campo OPCIONAL sem resposta por regra/banco fica em branco em vez de ir para a IA.
     skip_optional_without_rule: bool = True
+    # Plano B do formulário (vagas/rescue.py): quando as regras não acham o botão de candidatar/avançar, o modelo
+    # barato escolhe entre os elementos clicáveis da tela. O que funcionou fica gravado por site (sem IA na próxima).
+    rescue_enabled: bool = True
+    rescue_max_per_job: int = 3
 
 
 class ResumeCfg(BaseModel):

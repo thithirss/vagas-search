@@ -153,6 +153,8 @@ limits:
   # Sem ninguém no teclado (leva do painel, sem terminal) só espera isto e pula a vaga.
   # Muito checkpoint (captcha do Indeed) se resolve sozinho em poucos segundos.
   checkpoint_auto_seconds: 45
+  # Indeed barrou o robô (Cloudflare/login)? Pausa as vagas dele por N horas sem gastar tentativa (aviso no Telegram)
+  indeed_block_hours: 3
 
 browser:
   # persistent: Chrome/Chromium com perfil próprio dentro do WSL (janela via WSLg)
@@ -179,6 +181,10 @@ llm:
   reasoning_effort: low         # modelos que "pensam": raciocínio curto (mais barato e rápido); "" = padrão do modelo
   # modelos oferecidos na preparação de entrevista (tela Entrevistas), com custo estimado na própria tela
   prep_models: [gpt-6-luna, gpt-4.1-mini, gpt-6.1-terra, gpt-4.1, gpt-6.1-sol, gpt-6-astra]
+  # Plano B do formulário: sem botão conhecido, o cheap_model escolhe onde clicar (~R$ 0,002 por consulta).
+  # O que funcionou fica gravado por site e da próxima vez não usa IA.
+  rescue_enabled: true
+  rescue_max_per_job: 3
   # Abaixo desta confiança a resposta do LLM vira pergunta para você (modo interativo) ou pendência
   min_answer_confidence: 0.6
   # Perguntas destes temas SEMPRE exigem resposta sua (uma vez; depois fica no banco de respostas)
