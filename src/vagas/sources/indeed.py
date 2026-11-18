@@ -67,7 +67,7 @@ class IndeedSource(Source):
             if s.remote_only:
                 url += "&sc=0kf%3Aattr%28DSQF7%29%3B"   # atributo "Remoto" do Indeed
             elif getattr(s, "local", False):
-                url += "&radius=40"   # região do usuário: presencial/híbrido em até 40 km
+                url += f"&radius={getattr(s, 'radius_km', 40) or 40}"   # região do usuário: presencial/híbrido em até 40 km
         if start:
             url += f"&start={start}"
         return url

@@ -248,7 +248,10 @@ class Pipeline:
         """Vaga presencial/híbrida numa das cidades de discovery.local_cities (BH e região: pedido do usuário em 2026-10-29).
         Olha a localização do anúncio e a cidade que a classificação extraiu; a descrição não conta (citar "BH" de passagem
         não faz a vaga ser lá)."""
-        cities = [unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode().lower().strip() for c in self.s.discovery.local_cities]
+        cities = [unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode().lower().strip()
+                  for c in (self.s.discovery.local_cities if self.s.discovery.local_enabled else [])]
+        if (self._track(job, cls) or {}).get("local"):
+            return True
         if not cities:
             return False
         where = " ".join(str(x or "") for x in (job.location, (cls or job.classification or {}).get("job_city")))
@@ -274,6 +277,27 @@ class Pipeline:
             return min(self.s.airlines.max_age_hours, AIRLINE_MAX_AGE_HOURS)
         return self.s.discovery.max_age_hours
 
+    def _track(self, job: Job, cls: dict | None = None) -> dict | None:
+        """Áreas vizinhas (filters.adjacent_areas) e trilha regional (region_track), escolhidas na tela Preferências:
+        devolve as exceções da vaga ({"name", "icon", "allow_non_dev", "title_exempt", "min_fit", "local", "priority",
+        "notify"}) ou None. Ver vagas/areas.py."""
+        from .areas import track
+        try:
+            return track(job, cls if cls is not None else (job.classification or {}), self.s)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _track_overrides_reject(track: dict | None, cls: dict) -> bool:
+        """O classificador marca `hard_reject` em vaga de área vizinha só por "não é desenvolvimento" (17/11: 9
+        vagas de ERP/QA/sistemas barradas em 20 min). Se a área foi escolhida, esse motivo não vale; outro
+        requisito rígido (anos, certificação) ou contexto fora de TI (automação industrial) continua barrando."""
+        from .areas import NOT_IT_RE
+        if not (track and track.get("allow_non_dev")) or cls.get("is_dev_role"):
+            return False
+        reason = str(cls.get("reason") or "")
+        return bool(re.search(r"desenvolv|\bdev\b|programa[cç]", reason, re.I)) and not NOT_IT_RE.search(reason)
+
     def _airline(self, job: Job) -> bool:
         from .airlines import is_airline
         return is_airline(job.company, self.s.airlines)
@@ -281,6 +305,7 @@ class Pipeline:
     def _blacklisted(self, job: Job) -> str | None:
         t = _fold(job.title or "")
         exempt = {_fold(x) for x in self.s.airlines.title_blacklist_exempt} if self._airline(job) else set()
+        exempt |= {_fold(x) for x in ((self._track(job) or {}).get("title_exempt") or [])}
         for w in self.s.filters.title_blacklist:
             if _fold(w) in t and _fold(w) not in exempt:   # aérea: "suporte" não bloqueia (trilha de companhia aérea)
                 return f"título contém '{w}'"
@@ -317,7 +342,7 @@ class Pipeline:
         level = job_seniority(job)
         if level not in filters.allowed_seniorities:
             return f"nível {level} fora dos permitidos ({', '.join(filters.allowed_seniorities)})"
-        if level == "unspecified" and not self._airline(job) and int((job.classification or {}).get("fit_score") or 0) < filters.unspecified_min_fit_score:
+        if level == "unspecified" and not self._airline(job) and not self._track(job) and int((job.classification or {}).get("fit_score") or 0) < filters.unspecified_min_fit_score:
             return f"nível indefinido exige aderência >= {filters.unspecified_min_fit_score}"
         return None
 
@@ -444,7 +469,10 @@ class Pipeline:
         from .airlines import is_it_support
         airline_it = airline and self.s.airlines.allow_it_support and is_it_support(job.title, job.description)
         min_fit = self.s.airlines.min_fit_score if airline else self.s.apply.min_fit_score
-        if not cls.get("is_dev_role") and not airline_it:
+        track = self._track(job, cls)
+        if track:
+            min_fit = min(min_fit, int(track.get("min_fit", min_fit)))
+        if not cls.get("is_dev_role") and not airline_it and not (track and track.get("allow_non_dev")):
             job.status, job.reason = "skipped", f"não é vaga de dev: {cls.get('reason','')}"
         elif self.s.filters.job_languages and lang not in self.s.filters.job_languages:
             job.status, job.reason = "skipped", f"descrição em {lang} (só aceito {', '.join(self.s.filters.job_languages)})"
@@ -452,7 +480,7 @@ class Pipeline:
             job.status, job.reason = "skipped", f"não é remoto ({cls.get('work_model')})"
         elif foreign_required and reject.get("requires_language_i_dont_have", True):
             job.status, job.reason = "skipped", f"exige idioma: {', '.join(foreign_required)}"
-        elif cls.get("hard_reject"):
+        elif cls.get("hard_reject") and not self._track_overrides_reject(track, cls):
             job.status, job.reason = "skipped", f"requisito eliminatório: {cls.get('reason','')}"
         elif (seniority_reason := self._seniority_rejection(job)):
             job.status, job.reason = "skipped", seniority_reason
@@ -463,6 +491,11 @@ class Pipeline:
         self.db.save_job(job)
         if job.status == "queued":
             self._auto_suggest_courses(cls)
+            if track and track.get("notify"):
+                try:
+                    notify(f"{track.get('icon', '📍')} {track.get('name', 'Trilha pessoal')}: vaga na fila — {job.title} — {job.company} ({job.location or 'local não informado'})")
+                except Exception:
+                    pass
             if airline:   # trilha de companhia aérea: avisa assim que entra na fila
                 try:
                     notify(f"✈️ Vaga em companhia aérea na fila: {job.title} — {job.company} ({job.location or 'local não informado'})")
@@ -847,7 +880,7 @@ class Pipeline:
         level = job_seniority(job)
         rank = preferred.index(level) if level in preferred else len(preferred)
         # companhia aérea fura a fila (trilha especial pedida pelo usuário)
-        return (0 if self._airline(job) else 1, rank, -int((job.classification or {}).get("fit_score") or 0), job.discovered_at)
+        return (0 if (self._airline(job) or (self._track(job) or {}).get("priority")) else 1, rank, -int((job.classification or {}).get("fit_score") or 0), job.discovered_at)
 
     def block_source(self, source: str, reason: str) -> None:
         """Pausa uma fonte inteira (hoje só o Indeed) por `limits.indeed_block_hours` e avisa uma vez no Telegram."""

@@ -22,11 +22,124 @@ APPLY_BTN_RE = re.compile(
 # textos que casam com APPLY_BTN_RE mas são navegação de conta/rodapé (Gupy logada: "Minhas candidaturas", "Empresas que me candidatei")
 APPLY_NEG_RE = re.compile(r"minhas candidaturas|me candidatei|candidaturas?$|aviso|privacidade|termos|pol[ií]tica|cookies|suporte|sair|whatsapp|compartilh|share", re.I)
 LOGIN_WALL_RE = re.compile(r"[/#](login|signin|sign-in|sign_in|entrar|auth|authenticate|cadastro|signup|sign-up|register|account)\b|^https?://(account|login|auth|accounts|id|sso)\.", re.I)
+DROPDOWN_NO_ACCOUNT_RE = re.compile(r"seu curr[ií]culo|sem cadastro|formul[aá]rio|com (seu )?e-?mail|your (resume|cv)|quick apply", re.I)
 LOGIN_PROMPT_RE = re.compile(
     r"sua sess[aã]o expirou|voc[eê] foi desconectado|fa[cç]a login novamente|"
     r"quer se candidatar a esta vaga\?.{0,100}(criar meu curr[ií]culo|j[aá] tenho conta)|"
     r"entre no empregos\.com\.br|j[aá] existe um curr[ií]culo cadastrado com esse e-?mail", re.I | re.S)
 
+
+# ---------- login social com LinkedIn (pedido do usuário, 2026-11-17) ----------
+# "quando o site permitir login social com LinkedIn, deixe fazer com o LinkedIn": a conta do LinkedIn já está logada
+# no perfil do bot, então "Entrar/Candidatar-se/Continuar com LinkedIn" vira candidatura em vez de pendência de conta.
+LI_SOCIAL_TEXT_RE = re.compile(
+    r"\b(entrar|login|logar|acess\w*|continu\w*|candidat\w*|inscrev\w*|cadastr\w*|registr\w*|conect\w*|aplic\w*|"
+    r"sign ?(in|up)|log ?in|apply|continue|connect|register)\b[^\n]{0,25}\blinked ?in\b|^\s*linked ?in\s*$", re.I)
+LI_SOCIAL_HREF_RE = re.compile(r"linkedin\.com/(oauth|uas/oauth)|[/?&=_-](auth|oauth|login|signin|social|connect|provider)[/=_-]?linkedin|"
+                               r"linkedin[/_-](auth|oauth|login|signin|callback)", re.I)
+# links do LinkedIn que NÃO são login: perfil da empresa, compartilhar, seguir, voltar para a vaga
+LI_SOCIAL_NEG_RE = re.compile(r"compartilh|share|siga|follow|seguir|linkedin\.com/(company|in|feed|jobs|school|posts|sharing|shareArticle)", re.I)
+
+LI_SOCIAL_JS = r"""
+() => {
+  const T = new RegExp(%s, 'i'), H = new RegExp(%s, 'i'), N = new RegExp(%s, 'i');
+  const LOGINCTX = /entrar|login|acess|cadastr|candidat|inscri|continuar com|sign ?in|log ?in|sign ?up|apply|register|conta|account/i;
+  const all = [];
+  const walk = root => { root.querySelectorAll('a, button, [role=button], input[type=button], input[type=submit], div[onclick], span[onclick]').forEach(e => all.push(e));
+                         root.querySelectorAll('*').forEach(e => e.shadowRoot && walk(e.shadowRoot)); };
+  walk(document);
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 4 && r.height > 4 && s.visibility !== 'hidden' && s.display !== 'none'; };
+  document.querySelectorAll('[data-vagas-li]').forEach(e => e.removeAttribute('data-vagas-li'));
+  let best = null, score = 0;
+  for (const e of all) {
+    if (!vis(e) || e.closest('footer, [class*=footer i], [class*=share i]')) continue;
+    const imgs = [...e.querySelectorAll('img, svg title')].map(i => i.getAttribute('alt') || i.textContent || '').join(' ');
+    const txt = ((e.innerText || e.value || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '') + ' ' + imgs).replace(/\s+/g, ' ').trim();
+    const href = e.getAttribute('href') || '';
+    const meta = (e.className && e.className.baseVal !== undefined ? e.className.baseVal : e.className || '') + ' ' + (e.id || '') + ' ' + (e.getAttribute('data-provider') || '');
+    if (N.test(txt) || N.test(href)) continue;
+    let s = 0;
+    if (T.test(txt)) s = 3;
+    else if (H.test(href)) s = 3;
+    else if (/linked ?in/i.test(meta + ' ' + txt)) {
+      // botão só com o ícone do LinkedIn: vale quando está num bloco de login/cadastro
+      const box = e.closest('form, [class*=login i], [class*=social i], [class*=auth i], [class*=sign i], [role=dialog], section, div');
+      if (box && LOGINCTX.test((box.innerText || '').slice(0, 600))) s = 2;
+    }
+    if (s > score) { score = s; best = e; }
+  }
+  if (!best) return null;
+  best.setAttribute('data-vagas-li', '1');
+  return (best.innerText || best.getAttribute('aria-label') || best.getAttribute('href') || 'LinkedIn').trim().slice(0, 60);
+}
+""" % (repr(LI_SOCIAL_TEXT_RE.pattern), repr(LI_SOCIAL_HREF_RE.pattern), repr(LI_SOCIAL_NEG_RE.pattern))
+
+
+def find_linkedin_login(page: Page) -> str | None:
+    """Marca com data-vagas-li o botão "Entrar/Candidatar-se com LinkedIn" da página e devolve o texto dele."""
+    try:
+        return page.evaluate(LI_SOCIAL_JS)
+    except Exception:
+        return None
+
+
+def linkedin_oauth(ctx: ApplyContext, page: Page, done, timeout: float = 90) -> bool:
+    """Conduz o lado do LinkedIn do login social: se a sessão já vale, o LinkedIn só pede "Permitir" (ou nem isso);
+    se pedir a senha, usa LINKEDIN_PASSWORD do .env (o mesmo da Gupy). `done(page)` diz se já voltou logado ao site.
+    Verificação/captcha do LinkedIn: espera a pessoa (nunca resolve)."""
+    import os
+    pwd = os.environ.get("LINKEDIN_PASSWORD", "").strip()
+    email = ((ctx.profile.get("personal") or {}).get("email") or "").strip()
+    start = time.time()
+    deadline = start + timeout
+    filled = seen = False
+    while time.time() < deadline:
+        time.sleep(1.5)
+        try:
+            if page.is_closed():
+                return True     # janela de pop-up do OAuth fechou sozinha: o site recebeu o login
+        except Exception:
+            return True
+        url = page.url or ""
+        if "linkedin.com" not in url:
+            # logo depois do clique a página ainda é a do site: só vale como "voltou logado" depois de passar
+            # pelo LinkedIn, ou se em 15 s nem houve redirecionamento (login resolvido pelo próprio site)
+            if (seen or time.time() - start > 15) and done(page):
+                return True
+            continue
+        seen = True
+        try:
+            em = page.locator("input#username, input[name='session_key']").first
+            pw = page.locator("input#password, input[name='session_password']").first
+            if pw.count() and pw.is_visible() and not filled:
+                if not pwd:
+                    return ctx.browser.wait_for_human(page, "entrar no LinkedIn para o login social (defina LINKEDIN_PASSWORD no .env para automatizar)")
+                if em.count() and em.is_visible() and not em.input_value():
+                    em.fill(email)
+                pw.fill(pwd)
+                filled = True
+                time.sleep(0.5)
+                try:
+                    page.get_by_role("button", name=re.compile(r"^entrar$|^sign in$", re.I)).first.click(timeout=4000)
+                except Exception:
+                    pw.press("Enter")
+                time.sleep(3)
+                continue
+            allow = page.get_by_role("button", name=re.compile(r"^(permitir|allow|autorizar|aceitar|continuar|continue)\b", re.I)).first
+            if allow.count() and allow.is_visible():
+                h.click(allow)
+                time.sleep(3)
+                continue
+        except Exception:
+            pass
+        cp = ctx.browser.detect_checkpoint(page)
+        if cp == "captcha" or "checkpoint/challenge" in url:
+            if not ctx.browser.wait_for_human(page, "verificação do LinkedIn no login social"):
+                return False
+    try:
+        return page.is_closed() or done(page)
+    except Exception:
+        return True
 
 
 def _registrable_domain(host: str) -> str:
@@ -121,7 +234,17 @@ class GenericApplier(Applier):
                     h.click(btn)
                     time.sleep(0.8)
                     item = page.locator("a[href*='/apply'], [role='menuitem'] a, [role='menuitem'], .dropdown-menu a").filter(has_text=APPLY_BTN_RE).first
-                    if item.count() and item.is_visible() and usable(item):
+                    # "Candidate-se com ▾" (Pandapé/InfoJobs): Infojobs (conta) · Seu currículo (sem conta) · Chat
+                    # (o item fica dentro de .dropdown-menu, que `usable` recusaria como "menu": escolha direta)
+                    preferred = None
+                    for pref in (re.compile(r"linked ?in", re.I), DROPDOWN_NO_ACCOUNT_RE):
+                        alt = page.locator(".dropdown-menu a, [role='menuitem']").filter(has_text=pref).first
+                        if alt.count() and alt.is_visible():
+                            preferred = alt
+                            break
+                    if preferred is not None:
+                        btn = preferred
+                    elif item.count() and item.is_visible() and usable(item):
                         btn = item
                 except Exception:
                     pass
@@ -153,6 +276,53 @@ class GenericApplier(Applier):
             h.medium()
             return page
 
+    def _social_login(self, ctx: ApplyContext, page: Page) -> bool:
+        """Site com "Entrar/Candidatar-se/Continuar com LinkedIn": entra com a conta do LinkedIn do perfil do bot.
+        Devolve True se voltou ao site logado (a página pode ter recarregado)."""
+        s = getattr(ctx, "settings", None)
+        if s is not None and not getattr(s.apply, "social_login_linkedin", True):
+            return False
+        label = find_linkedin_login(page)
+        if not label:
+            return False
+        from urllib.parse import urlparse
+        origin = urlparse(page.url or "").netloc
+        console.print(f"[cyan]  login social: '{label}' em {origin} (conta do LinkedIn do bot)[/]")
+        btn = page.locator("[data-vagas-li='1']").first
+        popup = None
+        try:
+            with page.context.expect_page(timeout=6000) as np:
+                h.click(btn)
+            popup = np.value
+        except Exception:
+            popup = None
+
+        def back_logged(p: Page) -> bool:
+            u = p.url or ""
+            return "linkedin.com" not in u and not LOGIN_WALL_RE.search(u)
+
+        ok = linkedin_oauth(ctx, popup or page, back_logged)
+        if popup is not None:
+            try:
+                if not popup.is_closed():
+                    if "linkedin.com" in (popup.url or ""):
+                        ok = False
+                    popup.close()
+            except Exception:
+                pass
+        if not ok:
+            console.print(f"[yellow]  login social com LinkedIn não concluiu em {origin}[/]")
+            return False
+        try:
+            ctx.db.kv_set(f"social_login:{origin}", "linkedin")   # apply() não pula mais esse host por "exige conta"
+        except Exception:
+            pass
+        console.print(f"[green]  entrou em {origin} com o LinkedIn[/]")
+        h.medium()
+        self._wait_render(page)
+        dismiss_cookies(page)
+        return True
+
     def _handle_login_wall(self, ctx: ApplyContext, page: Page) -> bool:
         url = page.url or ""
         from urllib.parse import urlparse
@@ -164,6 +334,8 @@ class GenericApplier(Applier):
         login_prompt = bool(LOGIN_PROMPT_RE.search(forms.page_text(page)[:6000]))
         is_wall = login_prompt or login_form or any(host in url for host in self.login_hosts) or (LOGIN_WALL_RE.search(url) is not None and not fields_here)
         if not is_wall:
+            return True
+        if self._social_login(ctx, page):
             return True
         if (login_form or login_prompt) and not ctx.interactive:
             # tela de login com senha (portal próprio da empresa): sem ninguém no navegador não adianta esperar
@@ -216,6 +388,11 @@ class GenericApplier(Applier):
             if rs.action != "click":
                 if rs.situation == "encerrada":
                     return FlowResult("skipped", f"vaga encerrada (plano B: {rs.reason[:60]})")
+                if rs.situation == "exige_conta" and self._social_login(ctx, page):
+                    _, fields = forms.best_scope(page)
+                    if fields or forms.find_action_button(page):
+                        return page
+                    continue
                 if rs.situation == "exige_conta":
                     ctx.db.add_pending_question(job.id, f"O site exige conta para candidatar. Crie a conta e recoloque a vaga na fila: {page.url}", "link", [], "")
                     return FlowResult("needs_user", "site exige conta para candidatar (plano B; pendência criada)")
@@ -242,7 +419,7 @@ class GenericApplier(Applier):
         from urllib.parse import urlparse
         host = urlparse(page.url or "").netloc
         wall = host and (ctx.db.kv_get(f"needs_account:{host}") or ctx.db.kv_get("needs_account:*." + _registrable_domain(host)))
-        if wall and not ctx.interactive:
+        if wall and not ctx.interactive and not ctx.db.kv_get(f"social_login:{host}"):
             console.print(f"[yellow]  {host} exige conta própria; pulando (crie a conta pelo painel: Abrir no navegador do bot)[/]")
             ctx.db.add_pending_question(job.id, f"O site {host} exige conta para candidatar. Crie a conta uma vez e recoloque a vaga na fila.", "link", [], page.url)
             return FlowResult("needs_user", f"{host} exige conta para candidatar (pendência criada)")
@@ -272,6 +449,8 @@ class GenericApplier(Applier):
                 wall_text = forms.page_text(target)[:6000]
             except Exception:
                 wall_text = ""
+            if forms.ACCOUNT_WALL_RE.search(wall_text) and self._social_login(ctx, target):
+                wall_text = ""
             if forms.ACCOUNT_WALL_RE.search(wall_text):
                 from urllib.parse import urlparse
                 host = urlparse(target.url or "").netloc
@@ -294,6 +473,10 @@ class GenericApplier(Applier):
                 target2 = self._click_apply(ctx, target)
                 self._wait_render(target2)
                 _, fields = forms.best_scope(target2)
+                if len(fields) < 1 and not forms.find_action_button(target2) and self._social_login(ctx, target2):
+                    target2 = self._click_apply(ctx, target2)
+                    self._wait_render(target2)
+                    _, fields = forms.best_scope(target2)
                 if len(fields) < 1 and not forms.find_action_button(target2):
                     target2 = self._rescue_apply(ctx, target2, job)
                     if isinstance(target2, FlowResult):
@@ -383,11 +566,10 @@ class GupyApplier(GenericApplier):
             return False
 
     def _login_via_linkedin(self, ctx: ApplyContext, page: Page) -> bool:
-        """Gupy -> 'Entrar com LinkedIn' -> LinkedIn OAuth (pede a senha mesmo logado) -> 'Permitir' -> volta logado. Sem Turnstile."""
+        """Gupy -> 'Entrar com LinkedIn' -> LinkedIn OAuth (pode pedir a senha mesmo logado) -> 'Permitir' -> volta logado.
+        Sem Turnstile. O lado do LinkedIn é o mesmo do login social genérico (`linkedin_oauth`)."""
         import os
-        pwd = os.environ.get("LINKEDIN_PASSWORD", "").strip()
-        email = ((ctx.profile.get("personal") or {}).get("email") or "").strip()
-        if not pwd:
+        if not os.environ.get("LINKEDIN_PASSWORD", "").strip():
             return False
         try:
             self._wait_render(page, 6)
@@ -398,37 +580,7 @@ class GupyApplier(GenericApplier):
             if not li.count():
                 return False
             h.click(li)
-            deadline = time.time() + 90
-            filled = False
-            while time.time() < deadline:
-                time.sleep(1.5)
-                url = page.url or ""
-                if "gupy.io" in url and not re.search(r"signin|login", url):
-                    return True
-                if "linkedin.com" in url:
-                    try:
-                        em = page.locator("input#username, input[name='session_key']").first
-                        if em.count() and em.is_visible() and not em.input_value():
-                            em.fill(email)
-                        pw = page.locator("input#password, input[name='session_password']").first
-                        if pw.count() and pw.is_visible() and not filled:
-                            pw.fill(pwd); filled = True
-                            time.sleep(0.5)
-                            try:
-                                page.get_by_role("button", name=re.compile(r"^entrar$|^sign in$", re.I)).first.click(timeout=4000)
-                            except Exception:
-                                pw.press("Enter")   # botão às vezes não é encontrado pelo papel; Enter envia o form
-                            time.sleep(3)
-                            continue
-                        allow = page.get_by_role("button", name=re.compile(r"permitir|allow|autorizar", re.I)).first
-                        if allow.count() and allow.is_visible():
-                            h.click(allow); time.sleep(3); continue
-                    except Exception:
-                        pass
-                    cp = ctx.browser.detect_checkpoint(page)
-                    if cp == "captcha" or "checkpoint/challenge" in url:
-                        return ctx.browser.wait_for_human(page, "verificação do LinkedIn no login da Gupy")
-            return "gupy.io" in (page.url or "") and not re.search(r"signin|login", page.url or "")
+            return linkedin_oauth(ctx, page, lambda p: "gupy.io" in (p.url or "") and not re.search(r"signin|login", p.url or ""))
         except Exception as e:
             console.print(f"[yellow]  login via LinkedIn falhou: {str(e)[:100]}[/]")
             return False

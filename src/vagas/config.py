@@ -39,6 +39,7 @@ class Search(BaseModel):
     remote_only: bool = True
     posted_within: str = "24h"
     local: bool = False          # busca na região do usuário (discovery.local_location): presencial/híbrido valem
+    radius_km: int = 40          # raio da busca local
     airline: bool = False        # trilha de companhia aérea: janela própria (airlines.max_age_hours)
 
     @model_validator(mode="after")
@@ -76,6 +77,11 @@ class Discovery(BaseModel):
     local_cities: list[str] = Field(default_factory=list)
     local_queries: list[str] = Field(default_factory=list)   # vazio = base_queries
     local_sources: list[str] = Field(default_factory=list)   # vazio = todas; o Indeed local trazia eletricista/limpeza
+    local_enabled: bool = True     # liga/desliga presencial/híbrido na região sem perder a cidade configurada
+    local_radius_km: int = 40
+    # Termos extras buscados uma vez cada (remoto, Brasil), sem a matriz de níveis: áreas vizinhas, "Claude Code"...
+    extra_queries: list[str] = Field(default_factory=list)
+    extra_queries_sources: list[str] = Field(default_factory=lambda: ["linkedin"])
 
     @model_validator(mode="after")
     def _clamp(self) -> "Discovery":
@@ -112,6 +118,24 @@ class Airlines(BaseModel):
     max_age_hours: int = 720                                    # vagas de TI em aérea são raras: janela de 30 dias
 
 
+class RegionTrack(BaseModel):
+    """Trilha regional extra (vagas/areas.py): presencial/híbrido perto de UMA cidade, com regras mais abertas —
+    dev e, se quiser, suporte técnico/TI; aderência não barra; pode furar a fila e avisar no Telegram.
+    Ex.: quem mora em Campinas (SP) e aceita trabalhar perto de casa em vez de só remoto."""
+    enabled: bool = False
+    name: str = ""                                  # aparece no aviso do Telegram ("Campinas e região")
+    location: str = ""                              # centro da busca ("Campinas, São Paulo, Brasil")
+    radius_km: int = 40
+    cities: list[str] = Field(default_factory=list) # cidades aceitas (vaga fora delas não entra pela trilha)
+    include_dev: bool = True
+    include_support: bool = True                    # suporte técnico, help desk, técnico de informática, analista de TI
+    queries: list[str] = Field(default_factory=lambda: ["desenvolvedor", "programador", "analista de sistemas", "suporte técnico",
+                                                        "analista de suporte", "técnico de informática", "help desk", "analista de TI"])
+    sources: list[str] = Field(default_factory=lambda: ["linkedin", "gupy"])
+    priority: bool = True                           # fura a fila
+    notify: bool = True                             # aviso no Telegram quando entra na fila
+
+
 class Filters(BaseModel):
     allowed_seniorities: list[Literal["junior", "mid", "senior", "lead", "unspecified"]] = Field(default_factory=list)
     preferred_seniorities: list[str] = Field(default_factory=list)
@@ -126,6 +150,9 @@ class Filters(BaseModel):
     # true: vaga que EXIGE inglês (ou o formulário diz que o trabalho é em inglês) deixa de ser descartada.
     # Outros idiomas exigidos (espanhol, alemão…) continuam descartando. O nível declarado vem de profile.languages.
     accept_english: bool = False
+    # Áreas de TI vizinhas ao desenvolvimento que também valem (vagas/areas.py: AREAS): sistemas, dados, qa, erp,
+    # automacao_ia, suporte. Vazio = só desenvolvimento. Remoto/região, nível e blacklists continuam valendo.
+    adjacent_areas: list[str] = Field(default_factory=list)
     reject_if: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -214,6 +241,7 @@ class ApplyCfg(BaseModel):
     pause_before_submit: bool = False     # no modo interativo, pede confirmação antes de enviar
     min_fit_score: int = 0                # 0 = aplica para toda vaga de dev; >0 filtra por aderência
     apply_once_per_company_days: int = 0  # 0 = desligado; N = no máximo 1 candidatura por empresa a cada N dias
+    social_login_linkedin: bool = True    # site com "Entrar/Candidatar-se com LinkedIn": usa a conta do LinkedIn já logada
     max_attempts: int = 2                 # tentativas por vaga antes de marcar como failed definitivo
 
 
@@ -251,6 +279,7 @@ class Settings(BaseModel):
     max_pages_per_search: int = 3
     filters: Filters = Field(default_factory=Filters)
     airlines: Airlines = Field(default_factory=Airlines)
+    region_track: RegionTrack = Field(default_factory=RegionTrack)
     fitcultural: FitCultural = Field(default_factory=FitCultural)
     remote_access: bool = True     # link do painel para o celular (túnel Cloudflare + chave, vagas/remote.py)
     limits: Limits = Field(default_factory=Limits)
@@ -269,15 +298,15 @@ class Settings(BaseModel):
         out: list[Search] = []
         seen: set[tuple[str, str, str]] = set()
 
-        def add(src: str, q: str, local: bool = False, airline: bool = False) -> None:
-            loc = d.local_location if local else d.location
+        def add(src: str, q: str, local: bool = False, airline: bool = False, location: str = "", radius: int = 0) -> None:
+            loc = location or (d.local_location if local else d.location)
             key = (src, q.strip().lower(), loc)
             if key in seen or not q.strip():
                 return
             seen.add(key)
             age = min(self.airlines.max_age_hours, AIRLINE_MAX_AGE_HOURS) if airline else d.max_age_hours
             out.append(Search(source=src, query=q.strip(), location=loc, remote_only=not local, local=local, airline=airline,
-                              posted_within=f"{age}h"))
+                              posted_within=f"{age}h", radius_km=radius or d.local_radius_km))
 
         for level in d.seniority_terms or [""]:
             for src in d.sources:
@@ -286,11 +315,20 @@ class Settings(BaseModel):
                 if src in d.stack_queries_sources:
                     for st in d.stack_queries:
                         add(src, f"{d.stack_template.format(stack=st)} {level}".strip())
-                if d.local_location and (not d.local_sources or src in d.local_sources):   # região do usuário: presencial/híbrido aceitos em discovery.local_cities
+                if d.local_enabled and d.local_location and (not d.local_sources or src in d.local_sources):   # região do usuário: presencial/híbrido aceitos em discovery.local_cities
                     for q in (d.local_queries or d.base_queries):
                         add(src, f"{q} {level}".strip(), local=True)
-        for extra in self.searches:
-            add(extra.source, extra.query)
+        for q in d.extra_queries:   # termos extras: uma busca remota por termo e fonte
+            for src in d.extra_queries_sources:
+                add(src, q)
+        rt = self.region_track
+        if rt.enabled and rt.location:   # trilha regional: presencial/híbrido perto de uma cidade
+            for q in rt.queries:
+                for src in rt.sources:
+                    add(src, q, local=True, location=rt.location, radius=rt.radius_km)
+        for extra in self.searches:   # `local: true` + `location` = busca presencial/híbrida naquela cidade (raio 40 km)
+            add(extra.source, extra.query, local=extra.local,
+                location=extra.location if (extra.local and extra.location and extra.location != "Brasil") else "")
         # trilha de companhia aérea: "<papel> <companhia>", remoto no Brasil e presencial/híbrido na região
         a = self.airlines
         if a.enabled:

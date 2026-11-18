@@ -664,6 +664,18 @@ dialog.confirm { border-radius: 24px; }
 .pf-bar { position: sticky; bottom: 12px; grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap;
   padding: 12px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 12px 30px -16px rgba(0,0,0,.35); }
 .pf-bar .muted { margin-right: auto; font-size: 13px; }
+.pf-wrap { padding-bottom: 0; }
+.pf-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.pf-tab { font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink-2); text-decoration: none; }
+.pf-tab:hover { background: var(--surface-2); text-decoration: none; }
+.pf-sec { padding-top: 14px; scroll-margin-top: 16px; }
+.pf-sec + .pf-sec { border-top: 1px solid var(--border); margin-top: 18px; }
+.pf-sec h2 { margin: 0 0 10px; }
+.pf-presets { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.pf-text, .pf-list { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border-2); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; }
+.pf-list { resize: vertical; min-height: 70px; font-family: inherit; line-height: 1.45; }
+.pf-count { font-size: 11.5px; color: var(--ink-2); }
+.pf-row span { color: var(--ink-2); }
 </style>
 </head>
 <body>
@@ -1312,75 +1324,97 @@ views.contas = async () => {
 views.prefs = async () => {
   const d = await api('/api/prefs');
   return () => {
-  setHead('Preferências', 'decida como o bot busca e envia — vale na hora, a leva reinicia sozinha depois da vaga atual');
+  setHead('Preferências', 'decida como o bot busca e envia — vale ao salvar, e a leva reinicia sozinha depois da vaga atual');
   const v0 = d.values, v = JSON.parse(JSON.stringify(v0));
-  const ageName = h => h % 24 ? `${h}h` : ({1: '24 horas', 2: '48 horas', 3: '72 horas', 7: '1 semana', 14: '2 semanas', 30: '30 dias'}[h / 24] || `${h / 24} dias`);
-  const lvl = {junior: 'Júnior', mid: 'Pleno', senior: 'Sênior', lead: 'Líder / Tech Lead', unspecified: 'Nível não informado'};
-  const changedSaved = new Set(d.changed);
+  const F = {}; d.schema.forEach(s => s.fields.forEach(f => F[f.key] = f));
+  const saved = new Set(d.changed);
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  const card = (key, title, help, body) => `<div class="pf" data-key="${key}"><h3>${title}${changedSaved.has(key) ? '<span class="st done" title="escolhido no painel">sua escolha</span>' : ''}</h3><div class="help">${help}</div>${body}<div class="warn" data-warn="${key}"></div></div>`;
-  const ages = d.age_choices;
-  $('#content').innerHTML = `<section class="panel span12"><div class="pf-grid">
-    ${card('discovery.max_age_hours', 'Janela das vagas', 'Até quantas horas depois de publicada a vaga ainda entra. Maior = mais vagas, mas mais antigas (mais chance de já estarem fechando).',
-      `<div class="pf-chips" data-chips="age">${ages.map(h => `<button type="button" data-age="${h}">${ageName(h)}</button>`).join('')}</div>
-       <div class="pf-row">ou <input type="number" min="1" max="30" step="1" data-age-days aria-label="dias"> dias</div>`)}
-    ${card('filters.allowed_seniorities', 'Níveis aceitos', 'Vagas destes níveis entram na fila (o nível sai do título e da descrição).',
-      `<div class="pf-chips" data-chips="lvl">${d.seniorities.map(s => `<button type="button" data-lvl="${s}">${lvl[s] || s}</button>`).join('')}</div>`)}
-    ${card('filters.accept_english', 'Vagas que exigem inglês', 'Ligado: vaga que pede inglês também entra. Espanhol e outros idiomas exigidos continuam fora.',
-      `<label class="pf-switch"><input type="checkbox" data-bool="filters.accept_english"> aceitar vagas que exigem inglês</label>`)}
-    ${card('local', 'Presencial / híbrido na região', `Além das remotas, aceitar presencial e híbrido em ${esc(d.local_area || 'sua região')}${d.local_cities.length ? ` (${esc(d.local_cities.slice(0, 6).join(', '))}${d.local_cities.length > 6 ? '…' : ''})` : ''}.`,
-      d.local_area ? `<label class="pf-switch"><input type="checkbox" data-bool="local"> aceitar presencial/híbrido na região</label>` : '<div class="muted small">nenhuma região configurada no settings.yaml</div>')}
-    ${card('apply.min_fit_score', 'Aderência mínima', 'Quanto a vaga precisa combinar com seu perfil (0 = qualquer vaga de dev).',
-      `<div class="pf-row"><input type="range" min="0" max="95" step="5" data-num="apply.min_fit_score"><b data-out="apply.min_fit_score"></b></div>`)}
-    ${card('filters.unspecified_min_fit_score', 'Aderência quando o nível não é informado', 'Exigência para vaga que não diz se é júnior, pleno ou sênior.',
-      `<div class="pf-row"><input type="range" min="0" max="95" step="5" data-num="filters.unspecified_min_fit_score"><b data-out="filters.unspecified_min_fit_score"></b></div>`)}
-    ${card('limits.max_applications_per_day', 'Candidaturas por dia', 'Teto diário de envios (todas as fontes) e quanto disso pode ser pelo LinkedIn.',
-      `<div class="pf-row">total <input type="number" min="1" max="1000" data-num="limits.max_applications_per_day"> LinkedIn <input type="number" min="0" max="150" data-num="limits.max_per_source_per_day.linkedin"></div>`)}
-    ${card('limits.active_hours', 'Horário de trabalho do bot', 'Fora deste horário ele só dorme (e lê os e-mails).',
-      `<div class="pf-row">das <input type="time" data-time="0"> às <input type="time" data-time="1"></div>`)}
-    ${card('limits.discovery_interval_minutes', 'Buscar vagas novas a cada', `Cada rodada faz ${d.searches_total} buscas; intervalo curto demais faz o bot passar mais tempo buscando que enviando.`,
-      `<div class="pf-row"><input type="number" min="15" max="720" step="5" data-num="limits.discovery_interval_minutes"> minutos</div>`)}
+  const ageName = h => h % 24 ? `${h}h` : ({1: '24 horas', 2: '48 horas', 3: '72 horas', 7: '1 semana', 14: '2 semanas', 30: '30 dias'}[h / 24] || `${h / 24} dias`);
+  const listText = a => (a || []).join('\n');
+  const ctl = f => {
+    const k = esc(f.key), suf = f.suffix ? `<span>${esc(f.suffix)}</span>` : '';
+    switch (f.type) {
+      case 'age': return `<div class="pf-chips">${f.choices.map(h => `<button type="button" data-k="${k}" data-val="${h}">${ageName(h)}</button>`).join('')}</div>
+        <div class="pf-row">ou <input type="number" min="1" max="30" data-k="${k}" data-days aria-label="dias"> dias</div>`;
+      case 'multi': return `<div class="pf-chips">${f.options.map(([val, lab]) => `<button type="button" data-k="${k}" data-multi="${esc(val)}">${esc(lab)}</button>`).join('')}</div>`;
+      case 'bool': return `<label class="pf-switch"><input type="checkbox" data-k="${k}"> ${esc(f.text || f.label)}</label>`;
+      case 'range': return `<div class="pf-row"><input type="range" min="${f.min}" max="${f.max}" step="${f.step || 1}" data-k="${k}"><b data-out="${k}"></b></div>`;
+      case 'int': return `<div class="pf-row"><input type="number" min="${f.min}" max="${f.max}" step="${f.step || 1}" data-k="${k}">${suf}</div>`;
+      case 'pair': return `<div class="pf-row">de <input type="number" min="${f.min}" max="${f.max}" data-k="${k}" data-i="0"> a <input type="number" min="${f.min}" max="${f.max}" data-k="${k}" data-i="1">${suf}</div>`;
+      case 'times': return `<div class="pf-row">das <input type="time" data-k="${k}" data-i="0"> às <input type="time" data-k="${k}" data-i="1"></div>`;
+      case 'text': return `<input class="pf-text" type="text" data-k="${k}" maxlength="200">`;
+      case 'list': return `<textarea class="pf-list" rows="${Math.min(8, Math.max(3, (v[f.key] || []).length + 1))}" data-k="${k}" spellcheck="false"></textarea><div class="pf-count" data-count="${k}"></div>`;
+    }
+    return '';
+  };
+  const field = f => `<div class="pf" data-key="${esc(f.key)}"><h3>${esc(f.label)}${saved.has(f.key) ? '<span class="st done" title="mudado no painel">sua escolha</span>' : ''}</h3>
+    ${f.help ? `<div class="help">${esc(f.help)}</div>` : ''}${ctl(f)}<div class="warn" data-warn="${esc(f.key)}"></div></div>`;
+  const tabs = d.schema.map(s => `<a href="#pf-${s.id}" class="pf-tab">${esc(s.title)}</a>`).join('');
+  $('#content').innerHTML = `<section class="panel span12 pf-wrap"><nav class="pf-tabs">${tabs}</nav>
+    ${d.schema.map(s => `<div class="pf-sec" id="pf-${s.id}"><h2>${esc(s.title)}</h2>${s.help ? `<div class="small muted" style="margin:-4px 0 10px">${esc(s.help)}</div>` : ''}
+      ${s.presets ? `<div class="pf-presets"><span class="small muted">atalhos:</span>${Object.keys(d.presets).map(p => `<button type="button" class="btn small" data-preset="${p}">${{cauteloso: '🐢 Cauteloso', normal: 'Normal', turbo: '🚀 Turbo'}[p] || p}</button>`).join('')}</div>` : ''}
+      <div class="pf-grid">${s.fields.map(field).join('')}</div></div>`).join('')}
     <div class="pf-bar"><span class="muted" id="pf-status"></span><button class="btn" id="pf-undo">Desfazer</button><button class="btn primary" id="pf-save">Salvar</button></div>
-  </div></section>`;
+  </section>`;
   const root = $('#content > section');   // elemento novo a cada render: os ouvintes não se acumulam
   const paint = () => {
-    $$('[data-age]', root).forEach(b => b.classList.toggle('on', +b.dataset.age === v['discovery.max_age_hours']));
-    const days = root.querySelector('[data-age-days]'); if (document.activeElement !== days) days.value = v['discovery.max_age_hours'] % 24 ? '' : v['discovery.max_age_hours'] / 24;
-    $$('[data-lvl]', root).forEach(b => b.classList.toggle('on', v['filters.allowed_seniorities'].includes(b.dataset.lvl)));
-    $$('[data-bool]', root).forEach(i => i.checked = !!v[i.dataset.bool]);
-    $$('[data-num]', root).forEach(i => { if (document.activeElement !== i) i.value = v[i.dataset.num]; });
+    $$('[data-k]', root).forEach(el => {
+      const k = el.dataset.k, f = F[k], val = v[k];
+      if (document.activeElement === el && !['checkbox'].includes(el.type)) return;
+      if (el.dataset.val !== undefined) el.classList.toggle('on', +el.dataset.val === val);
+      else if (el.dataset.days !== undefined) el.value = val % 24 ? '' : val / 24;
+      else if (el.dataset.multi !== undefined) el.classList.toggle('on', (val || []).includes(el.dataset.multi));
+      else if (el.dataset.i !== undefined) el.value = (val || [])[+el.dataset.i] ?? '';
+      else if (el.type === 'checkbox') el.checked = !!val;
+      else if (f.type === 'list') el.value = listText(val);
+      else el.value = val ?? '';
+    });
     $$('[data-out]', root).forEach(o => o.textContent = v[o.dataset.out] ? `${v[o.dataset.out]} / 100` : 'qualquer');
-    $$('[data-time]', root).forEach(i => { if (document.activeElement !== i) i.value = v['limits.active_hours'][+i.dataset.time]; });
+    $$('[data-count]', root).forEach(o => o.textContent = `${(v[o.dataset.count] || []).length} item(ns)`);
     const warn = (k, msg) => { const w = root.querySelector(`[data-warn="${k}"]`); if (w) w.textContent = msg || ''; };
-    const age = v['discovery.max_age_hours'];
-    warn('discovery.max_age_hours', age > v0['discovery.max_age_hours'] && d.age_skipped
-      ? `Ao salvar, as vagas já puladas por idade que cabem em ${ageName(age)} voltam para a fila e passam por todos os filtros de novo.` : age > 168 ? 'Vagas com mais de uma semana costumam estar com muitos candidatos ou já fechando.' : '');
-    warn('filters.allowed_seniorities', v['filters.allowed_seniorities'].length ? '' : 'Escolha pelo menos um nível.');
-    warn('limits.max_applications_per_day', v['limits.max_per_source_per_day.linkedin'] > 50 ? 'Acima de ~50 por dia no LinkedIn aumenta o risco de a conta ser limitada.' : '');
+    Object.values(F).forEach(f => {
+      const val = v[f.key];
+      let msg = '';
+      if (f.type === 'multi' && f.min && !(val || []).length) msg = 'Escolha pelo menos uma opção.';
+      if (f.warn_above && val > f.warn_above) msg = f.help;
+      if (f.key === 'discovery.max_age_hours' && val > 168) msg = 'Vagas com mais de uma semana costumam estar com muitos candidatos ou já fechando.';
+      warn(f.key, msg);
+    });
     const dirty = Object.keys(v).filter(k => !same(v[k], v0[k]));
-    $$('.pf', root).forEach(c => c.classList.toggle('dirty', dirty.includes(c.dataset.key) || (c.dataset.key === 'limits.max_applications_per_day' && dirty.includes('limits.max_per_source_per_day.linkedin'))));
-    $('#pf-status').textContent = dirty.length ? `${dirty.length} mudança(s) não salva(s)` : (d.run_running ? 'tudo salvo · bot rodando' : 'tudo salvo');
-    $('#pf-save').disabled = !dirty.length || !v['filters.allowed_seniorities'].length; $('#pf-undo').disabled = !dirty.length;
+    $$('.pf', root).forEach(c => c.classList.toggle('dirty', dirty.includes(c.dataset.key)));
+    const bad = Object.values(F).some(f => f.type === 'multi' && f.min && !(v[f.key] || []).length);
+    $('#pf-status').textContent = dirty.length ? `${dirty.length} mudança(s) não salva(s)` : `tudo salvo · ${d.searches_total} buscas por rodada${d.run_running ? ' · bot rodando' : ''}`;
+    $('#pf-save').disabled = !dirty.length || bad; $('#pf-undo').disabled = !dirty.length;
   };
   root.addEventListener('click', e => {
-    const a = e.target.closest('[data-age]'); if (a) { v['discovery.max_age_hours'] = +a.dataset.age; paint(); return; }
-    const l = e.target.closest('[data-lvl]'); if (l) { const s = new Set(v['filters.allowed_seniorities']); s.has(l.dataset.lvl) ? s.delete(l.dataset.lvl) : s.add(l.dataset.lvl);
-      v['filters.allowed_seniorities'] = d.seniorities.filter(x => s.has(x)); paint(); }
-  });
-  root.addEventListener('input', e => {
-    const i = e.target;
-    if (i.matches('[data-age-days]')) { const n = Math.round(+i.value); if (n >= 1 && n <= 30) { v['discovery.max_age_hours'] = n * 24; paint(); } return; }
-    if (i.matches('[data-bool]')) v[i.dataset.bool] = i.checked;
-    else if (i.matches('[data-num]')) { if (i.value !== '') v[i.dataset.num] = +i.value; }
-    else if (i.matches('[data-time]')) { const h = [...v['limits.active_hours']]; h[+i.dataset.time] = i.value; v['limits.active_hours'] = h; }
+    const p = e.target.closest('[data-preset]');
+    if (p) { Object.entries(d.presets[p.dataset.preset]).forEach(([k, val]) => { if (k in v) v[k] = JSON.parse(JSON.stringify(val)); }); paint(); toast('Atalho aplicado — confira e clique em Salvar'); return; }
+    const b = e.target.closest('button[data-k]'); if (!b) return;
+    const k = b.dataset.k;
+    if (b.dataset.val !== undefined) v[k] = +b.dataset.val;
+    else if (b.dataset.multi !== undefined) {
+      const s = new Set(v[k] || []); s.has(b.dataset.multi) ? s.delete(b.dataset.multi) : s.add(b.dataset.multi);
+      v[k] = F[k].options.map(o => o[0]).filter(x => s.has(x));
+    }
     paint();
   });
-  $('#pf-undo').addEventListener('click', () => { Object.assign(v, JSON.parse(JSON.stringify(v0))); paint(); });
+  root.addEventListener('input', e => {
+    const el = e.target, k = el.dataset.k; if (!k) return;
+    const f = F[k];
+    if (el.dataset.days !== undefined) { const n = Math.round(+el.value); if (n >= 1 && n <= 30) v[k] = n * 24; }
+    else if (el.dataset.i !== undefined) { const a = [...(v[k] || ['', ''])]; a[+el.dataset.i] = f.type === 'times' ? el.value : (el.value === '' ? '' : +el.value); v[k] = a; }
+    else if (el.type === 'checkbox') v[k] = el.checked;
+    else if (f.type === 'list') v[k] = el.value.split('\n').map(x => x.trim()).filter(Boolean);
+    else if (f.type === 'int' || f.type === 'range') { if (el.value !== '') v[k] = +el.value; }
+    else v[k] = el.value;
+    paint();
+  });
+  $('#pf-undo').addEventListener('click', () => { Object.keys(v).forEach(k => v[k] = JSON.parse(JSON.stringify(v0[k]))); paint(); });
   $('#pf-save').addEventListener('click', async () => {
     const changes = {}; Object.keys(v).forEach(k => { if (!same(v[k], v0[k])) changes[k] = v[k]; });
     const r = await act($('#pf-save'), () => post('/api/prefs', {changes}));
     if (!r) return;
-    toast(['Preferências salvas', r.requeued ? `${r.requeued} vaga(s) voltaram para a fila` : '', r.restarted ? 'o bot reinicia depois da vaga atual' : ''].filter(Boolean).join(' · '));
+    toast(['Preferências salvas', `${r.searches_total} buscas por rodada`, r.requeued ? `${r.requeued} vaga(s) voltaram para reavaliação` : '', r.restarted ? 'o bot reinicia depois da vaga atual' : ''].filter(Boolean).join(' · '));
     route();
   });
   paint();

@@ -149,7 +149,7 @@ class LinkedInSource(Source):
             "f_TPR": f"r{s.seconds}", "sortBy": "DD", "start": start,
         }
         if s.local:   # região do usuário: a cidade manda (o geoId do Brasil anularia a localização) + raio
-            q.pop("geoId"); q["distance"] = "40"
+            q.pop("geoId"); q["distance"] = str(s.radius_km or 40)
         if s.remote_only:
             q["f_WT"] = "2"
         return GUEST_SEARCH + "?" + urllib.parse.urlencode(q)
@@ -195,7 +195,7 @@ class LinkedInSource(Source):
     def search_url(self, s: Search, start: int) -> str:
         url = (
             "https://www.linkedin.com/jobs/search/?keywords=" + urllib.parse.quote_plus(s.query)
-            + "&location=" + urllib.parse.quote_plus(s.location) + ("&distance=40" if s.local else f"&geoId={self.geo_id}")
+            + "&location=" + urllib.parse.quote_plus(s.location) + (f"&distance={s.radius_km or 40}" if s.local else f"&geoId={self.geo_id}")
             + f"&f_TPR=r{s.seconds}&sortBy=DD"
         )
         if s.remote_only:

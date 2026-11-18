@@ -14,12 +14,14 @@ discovery:
   linkedin_geo_id: "106057199"     # Brasil
   linkedin_mode: guest             # guest | session
   max_pages_per_search: 5          # 10 vagas/página no endpoint público do LinkedIn (3 -> 5 em 29/10: mais volume)
-  max_age_hours: 72                # teto 72h (era 24h; afrouxado a pedido em 29/10 para ter mais vagas)
+  max_age_hours: 72                # janela das vagas em horas (tela Preferências: 24h a 30 dias)
   # Presencial/híbrido aceitos só na região (pedido em 29/10). As buscas locais usam esta localização sem filtro de remoto.
   local_location: ""          # ex.: "Belo Horizonte, Minas Gerais, Brasil" (vazio = só remoto; o `vagas setup` pergunta)
   local_cities: []             # ex.: [Belo Horizonte, Contagem, Betim] — presencial/híbrido só nestas cidades
   local_queries: [desenvolvedor, programador, desenvolvedor web, desenvolvedor full stack, engenheiro de software]
   local_sources: [linkedin, gupy]   # Indeed local em BH trazia 23% de vagas fora de TI (eletricista, limpeza...)
+  local_enabled: true              # false = só remoto, sem perder a cidade acima
+  local_radius_km: 40
 
   # Ordem: júnior, pleno e buscas sem nível para recuperar anúncios sem senioridade no título.
   seniority_terms: ["júnior", "pleno", ""]
@@ -31,6 +33,9 @@ discovery:
     - desenvolvedor de software
     - programador
     - engenheiro de software
+  # Termos extras buscados uma vez cada (remoto), sem a matriz de níveis. Ex.: "analista de QA", "Claude Code"
+  extra_queries: []
+  extra_queries_sources: [linkedin]
   stack_template: "desenvolvedor {stack}"
   stack_queries_sources: [linkedin]   # Indeed só nas buscas gerais/locais: no Indeed cada busca leva 30 s+ (navegador) e rendia 1/4 das novas do LinkedIn (29/10)
   # Prioridade para as tecnologias do currículo; conhecimentos básicos não viram alvo principal.
@@ -50,6 +55,21 @@ discovery:
 
 # Buscas extras fora da matriz (também forçadas para o teto de idade + remoto)
 searches: []
+
+# Trilha regional extra (opcional): presencial/híbrido perto de UMA cidade, com regras mais abertas —
+# dev e, se quiser, suporte técnico/TI; aderência não barra; pode furar a fila e avisar no Telegram.
+region_track:
+  enabled: false
+  name: ""                       # ex.: "Campinas e região" (aparece no Telegram)
+  location: ""                   # ex.: "Campinas, São Paulo, Brasil"
+  radius_km: 40
+  cities: []                     # cidades aceitas
+  include_dev: true
+  include_support: true          # suporte técnico, help desk, técnico de informática, analista de TI
+  queries: [desenvolvedor, programador, analista de sistemas, suporte técnico, analista de suporte, técnico de informática, help desk, analista de TI]
+  sources: [linkedin, gupy]
+  priority: true                 # fura a fila
+  notify: true                   # aviso no Telegram
 
 # Teste de Fit Cultural da Gupy: o bot responde sozinho, sem IA, ordenando as frases por esta prioridade
 # (o `vagas setup` pergunta). cla = pessoas/equipe · adhocracia = inovação/flexibilidade · mercado = resultado/metas ·
@@ -120,6 +140,8 @@ filters:
   # Mesmo com inglês avançado, vaga que exige inglês é descartada (mude aqui se quiser aplicar).
   job_languages: ["pt-BR"]
   accept_english: false              # true = não descarta vaga que exige inglês (o nível vem de profile.languages)
+  # Áreas de TI além de desenvolvimento que também valem: sistemas, dados, qa, erp, automacao_ia, suporte. [] = só dev.
+  adjacent_areas: []
   # Exigências que fazem descartar a vaga
   reject_if:
     requires_relocation: true         # exige mudar de cidade
@@ -231,6 +253,9 @@ apply:
   pause_before_submit: false    # no modo --interactive, pergunta antes de cada envio
   min_fit_score: 60             # só aplica em vagas com aderência >= 60 (70 -> 60 em 29/10, pedido de volume)
   apply_once_per_company_days: 0
+  # site que oferece "Entrar / Candidatar-se com LinkedIn": entra com a conta do LinkedIn já logada no bot
+  # (se o LinkedIn pedir a senha, usa LINKEDIN_PASSWORD do .env). false = vira pendência de conta como antes.
+  social_login_linkedin: true
   max_attempts: 2
 
 courses:

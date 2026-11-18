@@ -1583,6 +1583,7 @@ ERRORS_JS = r"""
 HINT_RE = re.compile(r"pressione (enter|shift)|press (enter|shift)|shift\s*\+\s*enter|ctrl\s*\+\s*enter|para (continuar|avan[cç]ar)$|↵|"
                      r"m[aá]x(imo|\.)? ?(de )?\d+ caracteres|\d+ caracteres restantes|characters? (remaining|left)|max(imum)? \d+ characters|"
                      r"n[aã]o poder[aã]o ser editad|cannot be edited|carregado (agora|com sucesso)|uploaded|arquivo (selecionado|anexado|enviado)|upload conclu|"
+                     r"upload (do|de) (curr[ií]culo|arquivo|cv) conclu|(curr[ií]culo|arquivo) (carregado|anexado) com sucesso|"
                      r"alerta de vagas criado|job alert created|receber[aá] sua primeira atualiza", re.I)
 
 

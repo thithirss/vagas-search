@@ -478,10 +478,122 @@ LOGIN_ISSUE_RE = "%login%"
 
 
 # ---------- Preferências (decisões do usuário editáveis no painel) ----------
-# Cada chave vira uma linha em config/preferencias.yaml, que vale por cima do settings.yaml (config.load_settings).
-# Valor igual ao do settings.yaml = a linha some (o arquivo guarda só o que você mudou).
+# A tela é gerada por PREF_SCHEMA: cada campo é uma chave com ponto do Settings. O valor escolhido vai para
+# config/preferencias.yaml (fora do git), que config.load_settings aplica por cima do settings.yaml. Valor igual ao do
+# settings.yaml = a linha some. Para oferecer uma opção nova no painel, basta acrescentar um campo aqui.
 AGE_CHOICES = [24, 48, 72, 120, 168, 336, 720]
 SENIORITIES = ["junior", "mid", "senior", "lead", "unspecified"]
+SOURCES_OPT = [["linkedin", "LinkedIn"], ["indeed", "Indeed"], ["gupy", "Gupy"]]
+
+
+def _pref_schema() -> list[dict]:
+    from .areas import AREAS
+    F = lambda key, label, typ, help="", **kw: {"key": key, "label": label, "type": typ, "help": help, **kw}
+    lv = [["junior", "Júnior"], ["mid", "Pleno"], ["senior", "Sênior"], ["lead", "Líder / Tech Lead"], ["unspecified", "Nível não informado"]]
+    return [
+        {"id": "busca", "title": "Busca de vagas", "fields": [
+            F("discovery.max_age_hours", "Janela das vagas", "age", "Até quantas horas depois de publicada a vaga ainda entra. Maior = mais vagas, porém mais antigas.", choices=AGE_CHOICES),
+            F("discovery.sources", "Onde buscar", "multi", "Fontes da busca principal.", options=SOURCES_OPT, min=1),
+            F("discovery.max_pages_per_search", "Páginas por busca", "int", "Mais páginas = mais vagas por busca e rodada mais demorada.", min=1, max=10),
+            F("limits.discovery_interval_minutes", "Buscar de novo a cada", "int", "Intervalo entre rodadas de busca.", min=15, max=720, step=5, suffix="min"),
+            F("discovery.base_queries", "Termos de busca principais", "list", "Um por linha. Cada termo é buscado em cada nível e em cada fonte."),
+            F("discovery.seniority_terms", "Níveis acrescentados aos termos", "multi", "\"desenvolvedor júnior\", \"desenvolvedor pleno\"… \"Sem nível\" busca o termo puro.",
+              options=[["júnior", "júnior"], ["pleno", "pleno"], ["sênior", "sênior"], ["", "sem nível"]], min=1),
+            F("discovery.stack_queries", "Tecnologias buscadas", "list", "Uma por linha: vira \"desenvolvedor <tecnologia>\"."),
+            F("discovery.stack_queries_sources", "Onde buscar as tecnologias", "multi", "", options=SOURCES_OPT),
+            F("discovery.extra_queries", "Termos extras", "list", "Um por linha, buscados uma vez cada (remoto). Ex.: analista de QA, Claude Code, agentes de IA."),
+            F("discovery.extra_queries_sources", "Onde buscar os termos extras", "multi", "", options=SOURCES_OPT),
+        ]},
+        {"id": "vagas", "title": "Quais vagas aceitar", "fields": [
+            F("filters.allowed_seniorities", "Níveis aceitos", "multi", "O nível sai do título e da descrição.", options=lv, min=1),
+            F("filters.adjacent_areas", "Áreas de TI além de desenvolvimento", "multi",
+              "Também aceitar vagas destas áreas (a aderência à sua stack não barra). Nada marcado = só desenvolvimento.",
+              options=[[k, v[0]] for k, v in AREAS.items()]),
+            F("filters.accept_english", "Vagas que exigem inglês", "bool", "Ligado: vaga que pede inglês também entra. Outros idiomas exigidos continuam fora.", text="aceitar vagas que exigem inglês"),
+            F("apply.min_fit_score", "Aderência mínima", "range", "Quanto a vaga precisa combinar com seu perfil (0 = qualquer).", min=0, max=95, step=5),
+            F("filters.unspecified_min_fit_score", "Aderência quando o nível não é informado", "range", "", min=0, max=95, step=5),
+            F("apply.apply_once_per_company_days", "Uma candidatura por empresa a cada", "int", "0 = sem limite.", min=0, max=180, suffix="dias"),
+            F("apply.social_login_linkedin", "Entrar com o LinkedIn nos sites", "bool",
+              "Quando o site da vaga oferece \"Entrar / Candidatar-se com LinkedIn\", o bot usa a sua conta do LinkedIn já logada em vez de desistir por falta de cadastro.",
+              text="usar o login com LinkedIn quando o site oferecer"),
+        ]},
+        {"id": "regiao", "title": "Presencial e híbrido na sua região", "fields": [
+            F("discovery.local_enabled", "Aceitar presencial/híbrido", "bool", "Além das remotas, aceitar presencial e híbrido nas cidades abaixo.", text="aceitar presencial/híbrido na região"),
+            F("discovery.local_location", "Cidade da busca", "text", "Centro da busca local. Ex.: Belo Horizonte, Minas Gerais, Brasil"),
+            F("discovery.local_radius_km", "Raio", "int", "", min=5, max=200, step=5, suffix="km"),
+            F("discovery.local_cities", "Cidades aceitas", "list", "Uma por linha. Vaga presencial fora delas é descartada."),
+        ]},
+        {"id": "trilha", "title": "Trilha regional extra", "help": "Uma segunda região com regras mais abertas: dev e, se quiser, suporte de TI perto de casa; aderência não barra.", "fields": [
+            F("region_track.enabled", "Ligada", "bool", "", text="usar a trilha regional"),
+            F("region_track.name", "Nome", "text", "Aparece no aviso do Telegram. Ex.: Campinas e região"),
+            F("region_track.location", "Cidade da busca", "text", "Ex.: Campinas, São Paulo, Brasil"),
+            F("region_track.radius_km", "Raio", "int", "", min=5, max=200, step=5, suffix="km"),
+            F("region_track.cities", "Cidades aceitas", "list", "Uma por linha."),
+            F("region_track.include_dev", "Desenvolvimento", "bool", "", text="aceitar vagas de desenvolvimento"),
+            F("region_track.include_support", "Suporte de TI", "bool", "Suporte técnico, help desk, técnico de informática, analista de TI.", text="aceitar suporte técnico/TI"),
+            F("region_track.queries", "Termos de busca", "list", "Um por linha."),
+            F("region_track.sources", "Onde buscar", "multi", "", options=SOURCES_OPT),
+            F("region_track.priority", "Prioridade", "bool", "", text="furar a fila"),
+            F("region_track.notify", "Aviso", "bool", "", text="avisar no Telegram quando entrar na fila"),
+        ]},
+        {"id": "ritmo", "title": "Ritmo e limites", "presets": True, "fields": [
+            F("limits.max_applications_per_day", "Candidaturas por dia (total)", "int", "", min=1, max=1000),
+            F("limits.max_per_source_per_day.linkedin", "Por dia no LinkedIn", "int", "Acima de ~50 aumenta o risco de a conta ser limitada.", min=0, max=150, warn_above=50),
+            F("limits.max_per_source_per_day.indeed", "Por dia no Indeed", "int", "", min=0, max=150),
+            F("limits.active_hours", "Horário de trabalho do bot", "times", "Fora dele o bot só dorme (e lê os e-mails)."),
+            F("limits.delay_between_applications", "Pausa entre envios no LinkedIn/Indeed", "pair", "Sorteada entre os dois valores.", min=5, max=600, suffix="s"),
+            F("limits.delay_between_applications_external", "Pausa entre envios em sites externos", "pair", "", min=0, max=600, suffix="s"),
+            F("limits.delay_after_failure", "Pausa depois de uma falha", "pair", "", min=0, max=120, suffix="s"),
+            F("limits.long_break_every", "Pausa longa a cada", "int", "Conta só envios pelo LinkedIn/Indeed.", min=1, max=100, suffix="envios"),
+            F("limits.long_break_minutes", "Duração da pausa longa", "pair", "", min=0, max=120, suffix="min"),
+        ]},
+        {"id": "bloqueios", "title": "Bloqueios", "fields": [
+            F("filters.company_blacklist", "Empresas bloqueadas", "list", "Uma por linha (trecho do nome)."),
+            F("filters.title_blacklist", "Palavras proibidas no título", "list", "Uma por linha. Ex.: estagi, vendedor."),
+            F("filters.host_blacklist", "Sites bloqueados", "list", "Um por linha. Ex.: catho.com.br"),
+        ]},
+        {"id": "extras", "title": "Extras", "fields": [
+            F("airlines.enabled", "Companhias aéreas", "bool", "Busca própria em companhias aéreas, janela de 30 dias e suporte de TI aceito nelas.", text="usar a trilha de companhias aéreas"),
+        ]},
+    ]
+
+
+RITMO_PRESETS = {
+    "cauteloso": {"limits.delay_between_applications": [60, 180], "limits.delay_between_applications_external": [20, 60],
+                  "limits.delay_after_failure": [5, 15], "limits.long_break_every": 8, "limits.long_break_minutes": [10, 20],
+                  "limits.max_per_source_per_day.linkedin": 30, "discovery.max_pages_per_search": 3, "limits.discovery_interval_minutes": 90},
+    "normal": {"limits.delay_between_applications": [45, 150], "limits.delay_between_applications_external": [15, 45],
+               "limits.delay_after_failure": [3, 10], "limits.long_break_every": 10, "limits.long_break_minutes": [6, 15],
+               "limits.max_per_source_per_day.linkedin": 50, "discovery.max_pages_per_search": 5, "limits.discovery_interval_minutes": 45},
+    "turbo": {"limits.delay_between_applications": [30, 90], "limits.delay_between_applications_external": [8, 25],
+              "limits.delay_after_failure": [2, 5], "limits.long_break_every": 15, "limits.long_break_minutes": [4, 8],
+              "limits.max_per_source_per_day.linkedin": 50, "discovery.max_pages_per_search": 8, "limits.discovery_interval_minutes": 30},
+}
+
+# mudanças que podem trazer de volta vagas já descartadas por filtro
+REFILTER_PREFIXES = ("discovery.max_age_hours", "filters.allowed_seniorities", "filters.adjacent_areas", "filters.accept_english",
+                     "apply.min_fit_score", "filters.unspecified_min_fit_score", "discovery.local_", "region_track.",
+                     "filters.title_blacklist")
+
+
+def _fields() -> dict[str, dict]:
+    return {f["key"]: f for sec in _pref_schema() for f in sec["fields"]}
+
+
+def _base_raw() -> dict:
+    path = CONFIG_DIR / "settings.yaml"
+    if not path.exists():
+        return {}
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def _dig(d, key: str, default=None):
+    cur = d
+    for k in key.split("."):
+        if not isinstance(cur, dict) or k not in cur:
+            return default
+        cur = cur[k]
+    return list(cur) if isinstance(cur, tuple) else cur
 
 
 def _hhmm(v) -> str:
@@ -492,122 +604,84 @@ def _hhmm(v) -> str:
     return f"{int(h):02d}:{m}"
 
 
-def _int_in(lo: int, hi: int):
-    def f(v):
-        try:
-            n = int(float(v))
-        except (TypeError, ValueError):
-            raise ValueError(f"número inválido: {v!r}")
-        if not lo <= n <= hi:
-            raise ValueError(f"{n} fora do intervalo {lo}–{hi}")
-        return n
-    return f
+def _num(v, f: dict, label: str) -> int:
+    try:
+        n = int(float(v))
+    except (TypeError, ValueError):
+        raise ValueError(f"{label}: número inválido ({v!r})")
+    lo, hi = f.get("min", 0), f.get("max", 10 ** 6)
+    if not lo <= n <= hi:
+        raise ValueError(f"{label}: {n} fora do intervalo {lo}–{hi}")
+    return n
 
 
-def _seniorities(v):
-    vals = [x for x in (v or []) if x in SENIORITIES]
-    if not vals:
-        raise ValueError("escolha pelo menos um nível")
-    return [x for x in SENIORITIES if x in vals]
-
-
-def _bool(v):
-    return bool(v) and v not in ("0", "false", "False")
-
-
-PREF_FIELDS = {
-    "discovery.max_age_hours": _int_in(1, 720),
-    "filters.allowed_seniorities": _seniorities,
-    "filters.accept_english": _bool,
-    "apply.min_fit_score": _int_in(0, 100),
-    "filters.unspecified_min_fit_score": _int_in(0, 100),
-    "limits.max_applications_per_day": _int_in(1, 1000),
-    "limits.max_per_source_per_day.linkedin": _int_in(0, 150),
-    "limits.active_hours": None,               # [início, fim]
-    "limits.discovery_interval_minutes": _int_in(15, 720),
-    "local": _bool,                            # presencial/híbrido na região (discovery.local_location)
-}
-
-
-def _base_raw() -> dict:
-    path = CONFIG_DIR / "settings.yaml"
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-
-
-def _dig(d: dict, key: str, default=None):
-    cur = d
-    for k in key.split("."):
-        if not isinstance(cur, dict) or k not in cur:
-            return default
-        cur = cur[k]
-    return cur
+def _clean(f: dict, v):
+    t, label = f["type"], f["label"]
+    if t in ("int", "range", "age"):
+        return _num(v, {"min": 1, "max": 720} if t == "age" else f, label)
+    if t == "bool":
+        return bool(v) and v not in ("0", "false", "False")
+    if t == "text":
+        return str(v or "").strip()[:200]
+    if t == "list":
+        items = v.splitlines() if isinstance(v, str) else list(v or [])
+        out, seen = [], set()
+        for x in items:
+            x = str(x).strip()[:120]
+            if x and x.lower() not in seen:
+                seen.add(x.lower()); out.append(x)
+        return out[:300]
+    if t == "multi":
+        allowed = [o[0] for o in f["options"]]
+        vals = [x for x in allowed if x in (v or [])]
+        if len(vals) < f.get("min", 0):
+            raise ValueError(f"{label}: escolha pelo menos uma opção")
+        return vals
+    if t == "pair":
+        a, b = (_num(x, f, label) for x in (list(v or []) + [None, None])[:2])
+        if a > b:
+            raise ValueError(f"{label}: o primeiro valor tem de ser menor ou igual ao segundo")
+        return [a, b]
+    if t == "times":
+        a, b = (_hhmm(x) for x in (list(v or []) + ["", ""])[:2])
+        if a >= b:
+            raise ValueError("o horário de início tem de ser antes do fim")
+        return [a, b]
+    raise ValueError(f"tipo desconhecido: {t}")
 
 
 def prefs_state(data) -> dict:
     from .config import load_prefs
-    s = data.s
-    base = Settings.model_validate(_base_raw())
+    cur = data.s.model_dump()
     prefs = load_prefs()
-    cur = {
-        "discovery.max_age_hours": s.discovery.max_age_hours,
-        "filters.allowed_seniorities": list(s.filters.allowed_seniorities),
-        "filters.accept_english": s.filters.accept_english,
-        "apply.min_fit_score": s.apply.min_fit_score,
-        "filters.unspecified_min_fit_score": s.filters.unspecified_min_fit_score,
-        "limits.max_applications_per_day": s.limits.max_applications_per_day,
-        "limits.max_per_source_per_day.linkedin": s.limits.max_per_source_per_day.get("linkedin", 50),
-        "limits.active_hours": list(s.limits.active_hours),
-        "limits.discovery_interval_minutes": s.limits.discovery_interval_minutes,
-        "local": bool(s.discovery.local_location),
-    }
-    changed = [k for k in prefs if k in PREF_FIELDS]
-    if "discovery.local_location" in prefs:
-        changed.append("local")
+    fields = _fields()
     return {
-        "values": cur, "changed": changed,
-        "local_area": base.discovery.local_location, "local_cities": base.discovery.local_cities,
-        "age_choices": AGE_CHOICES, "seniorities": SENIORITIES,
-        "searches_total": len(s.all_searches()),
+        "schema": _pref_schema(), "presets": RITMO_PRESETS,
+        "values": {k: _dig(cur, k) for k in fields},
+        "changed": [k for k in prefs if k in fields],
+        "searches_total": len(data.s.all_searches()),
         "run_running": "run" in running_tasks(),
-        "age_skipped": data.db.conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE status='skipped' AND reason LIKE 'publicada há mais de %'").fetchone()[0],
     }
 
 
 def save_prefs(data, changes: dict) -> dict:
     """Valida e grava as escolhas. Não reinicia nada (quem chama decide)."""
     from .config import PREFS_PATH, load_prefs, load_settings as _ls
-    base = Settings.model_validate(_base_raw())
+    fields = _fields()
+    base = Settings.model_validate(_base_raw()).model_dump()
     prefs = load_prefs()
-    before = data.s.discovery.max_age_hours
     for key, val in (changes or {}).items():
-        if key not in PREF_FIELDS:
+        f = fields.get(key)
+        if not f:
             raise ValueError(f"preferência desconhecida: {key}")
-        if key == "local":
-            if _bool(val) or not base.discovery.local_location:
-                prefs.pop("discovery.local_location", None)
-            else:
-                prefs["discovery.local_location"] = ""
-            continue
-        if key == "limits.active_hours":
-            a, b = (_hhmm(x) for x in (list(val or []) + ["", ""])[:2])
-            if a >= b:
-                raise ValueError("o horário de início tem de ser antes do fim")
-            val, base_val = [a, b], list(base.limits.active_hours)
-        elif key == "filters.accept_english":
-            val, base_val = _bool(val), base.filters.accept_english
-            langs = [x for x in base.filters.job_languages if x != "en"] + (["en"] if val else [])
-            if sorted(langs) == sorted(base.filters.job_languages):
+        val = _clean(f, val)
+        base_val = _dig(base, key)
+        if key == "filters.accept_english":   # o inglês também precisa estar entre os idiomas aceitos
+            langs = [x for x in (_dig(base, "filters.job_languages") or []) if x != "en"] + (["en"] if val else [])
+            if sorted(langs) == sorted(_dig(base, "filters.job_languages") or []):
                 prefs.pop("filters.job_languages", None)
             else:
                 prefs["filters.job_languages"] = langs
-        else:
-            val = PREF_FIELDS[key](val)
-            base_val = _dig(base.model_dump(), key)
-            if key == "limits.max_per_source_per_day.linkedin" and base_val is None:
-                base_val = 50
         if val == base_val:
             prefs.pop(key, None)
         else:
@@ -618,15 +692,23 @@ def save_prefs(data, changes: dict) -> dict:
         PREFS_PATH.write_text(head + yaml.safe_dump(prefs, allow_unicode=True, sort_keys=True), encoding="utf-8")
     elif PREFS_PATH.exists():
         PREFS_PATH.unlink()
-    return {"ok": True, "age_before": before, "age_after": _ls().discovery.max_age_hours}
+    s = _ls()   # confere que o conjunto carrega (erro de validação aparece aqui, não no bot)
+    refilter = any(k.startswith(REFILTER_PREFIXES) for k in (changes or {}))
+    return {"ok": True, "max_age": s.discovery.max_age_hours, "refilter": refilter, "searches_total": len(s.all_searches())}
 
 
-def requeue_age_skipped(db, max_age: int) -> int:
-    """Janela aumentou: vagas puladas só por idade que cabem na nova janela voltam para 'new' e passam por todos os
-    filtros de novo (classification=NULL)."""
+REFILTER_REASONS = ("não é vaga de dev%", "nível %", "exige idioma%", "fit %", "não é remoto%", "título contém%",
+                    "publicada há mais de %")
+
+
+def requeue_filtered(db, max_age: int) -> int:
+    """Filtros afrouxados: vagas recentes descartadas POR FILTRO voltam para 'new' e passam por todos os filtros de novo
+    (classification=NULL). Nunca as descartadas por você, blacklist de empresa/site ou duplicadas."""
     from .sources.base import is_too_old
-    rows = db.conn.execute("SELECT id, posted_at FROM jobs WHERE status='skipped' AND reason LIKE 'publicada há mais de %'").fetchall()
-    ids = [r[0] for r in rows if r[1] and not is_too_old(r[1], max_age)]
+    where = " OR ".join("reason LIKE ?" for _ in REFILTER_REASONS)
+    rows = db.conn.execute(f"SELECT id, posted_at, discovered_at FROM jobs WHERE status='skipped' AND ({where})",
+                           REFILTER_REASONS).fetchall()
+    ids = [r[0] for r in rows if not is_too_old(r[1] or r[2], max_age)]
     for i in range(0, len(ids), 500):
         part = ids[i:i + 500]
         db.conn.execute(f"UPDATE jobs SET status='new', reason=NULL, classification=NULL WHERE id IN ({','.join('?' * len(part))})", part)
@@ -1174,8 +1256,8 @@ def serve(settings: Settings, port: int = 8765) -> None:
                         res = save_prefs(data, payload.get("changes") or {})
                     except ValueError as e:
                         return self._json({"error": str(e)}, 400)
-                    if res["age_after"] > res["age_before"]:
-                        res["requeued"] = requeue_age_skipped(data.db, res["age_after"])
+                    if res["refilter"]:
+                        res["requeued"] = requeue_filtered(data.db, res["max_age"])
                     res["restarted"] = restart_run_later()
                     return self._json(res)
                 if u.path == "/api/accounts/forget":
