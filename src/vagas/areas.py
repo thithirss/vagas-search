@@ -28,7 +28,7 @@ AREAS: dict[str, tuple[str, str]] = {
             r"\bsap\b|\berp\b|totvs|protheus|salesforce|dynamics|netsuite|oracle (ebs|cloud|erp)|senior sistemas|sankhya"),
     "automacao_ia": ("Automação e IA (RPA, agentes, Claude Code, Codex…)",
                      r"automa[cç](ão|ao|[oõ]es)|\brpa\b|low.?code|no.?code|\bia\b|\bai\b|intelig[eê]ncia artificial|"
-                     r"\bllm\b|gen ?ai|generativ|agentes?|ag[eê]ntic|prompt|machine learning|claude|codex|copilot|vibe coding|"
+                     r"\bllm\b|gen ?ai|generativ|agentes?|ag[eê]ntic|prompt|machine learning|claude|codex|copilot|vibe ?cod(e|ing|er)|cursor ai|anthropic|openai|chatgpt|"
                      r"n8n|make\.com|zapier"),
     "suporte": ("Suporte técnico, infraestrutura e redes",
                 r"suporte (t[eé]cnico|de ti|de sistemas|ao usu[aá]rio|em ti|de inform[aá]tica|n[123])|analista de suporte|"
