@@ -109,6 +109,9 @@ class Browser:
         if not USING_PATCHRIGHT:
             # com Patchright o init script é dispensável (e o próprio Patchright recomenda não injetar)
             self.context.add_init_script(STEALTH_JS)
+        if self.cfg.mode != "cdp" and not self.cfg.headless:
+            from .desktop import start_guard
+            start_guard(self.settings)
         self.context.set_default_timeout(15000)
         self.context.set_default_navigation_timeout(45000)
         return self

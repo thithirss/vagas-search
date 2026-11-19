@@ -1357,6 +1357,20 @@ views.prefs = async () => {
     <div class="pf-bar"><span class="muted" id="pf-status"></span><button class="btn" id="pf-undo">Desfazer</button><button class="btn primary" id="pf-save">Salvar</button></div>
   </section>`;
   const root = $('#content > section');   // elemento novo a cada render: os ouvintes não se acumulam
+  if (d.desktop && d.desktop.count) {
+    const dk = d.desktop, box = document.createElement('div');
+    box.className = 'pf';
+    const where = n => n ? `área de trabalho ${n}` : 'nenhuma';
+    box.innerHTML = `<h3>Área de trabalho do bot</h3>
+      <div class="help">Você está na <b>${where(dk.current)}</b> de ${dk.count}. A janela do bot fica na <b>${dk.home ? where(dk.home) : 'área em que ele abrir primeiro'}</b>.
+      Para trocar, abra este painel na área que quer usar para o bot e clique no botão.</div>
+      <button type="button" class="btn small" id="pf-desk">Prender nesta área (${where(dk.current)})</button>`;
+    const grid = root.querySelector('#pf-extras .pf-grid'); if (grid) grid.prepend(box);
+    root.querySelector('#pf-desk')?.addEventListener('click', async ev => {
+      const r = await act(ev.currentTarget, () => post('/api/desktop/home', {}));
+      if (r && r.ok) { toast(`Janela do bot presa na ${where(r.desktop.home)}`); route(); }
+    });
+  }
   const paint = () => {
     $$('[data-k]', root).forEach(el => {
       const k = el.dataset.k, f = F[k], val = v[k];

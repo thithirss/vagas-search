@@ -193,13 +193,32 @@ class Pipeline:
             return SOURCES["linkedin"](geo_id=self.s.discovery.linkedin_geo_id, mode=self.s.discovery.linkedin_mode)
         return SOURCES[name]()
 
-    def discover(self, only_source: str | None = None) -> dict[str, int]:
+    def discovery_in_progress(self) -> bool:
+        """Uma volta de busca em fatias começou e ainda não chegou ao fim (cursor em `kv discover_cursor`)."""
+        return int(self.db.kv_get("discover_cursor") or 0) > 0
+
+    def discover(self, only_source: str | None = None, max_minutes: float | None = None) -> dict[str, int]:
+        """Roda as buscas. Com `max_minutes`, roda só uma FATIA (continua de onde parou na próxima chamada) e só marca
+        `last_discovery` quando a volta inteira termina — assim os envios acontecem entre as fatias."""
         page = None
         counts: dict[str, int] = {}
         max_age = self.s.discovery.max_age_hours
         searches = [x for x in self.s.all_searches() if not only_source or x.source == only_source]
-        console.print(f"[dim]{len(searches)} buscas (até {max_age}h)[/]")
-        for s in searches:
+        start = 0
+        if max_minutes and not only_source:
+            start = int(self.db.kv_get("discover_cursor") or 0)
+            if start >= len(searches):
+                start = 0
+        deadline = time.time() + max_minutes * 60 if max_minutes else None
+        console.print(f"[dim]{len(searches)} buscas (até {max_age}h)" + (f" · fatia de {max_minutes:g} min a partir da {start + 1}ª" if deadline else "") + "[/]")
+        done_all = True
+        for i in range(start, len(searches)):
+            s = searches[i]
+            if deadline and time.time() > deadline:
+                self.db.kv_set("discover_cursor", str(i))
+                console.print(f"[dim]fatia de busca encerrada em {i}/{len(searches)}; envio a fila antes de continuar[/]")
+                done_all = False
+                break
             if stopflag.requested():   # Parar do painel: não começa outra busca
                 raise stopflag.StopRequested()
             if s.source not in SOURCES:
@@ -226,7 +245,10 @@ class Pipeline:
             console.print(f"[green]{s.source}[/] '{s.query}': {len(found)} encontradas, {new} novas" + (f" ({old} antigas ignoradas)" if old else ""))
             if getattr(src, "needs_browser", True):
                 h.medium()
-        self.db.kv_set("last_discovery", datetime.now().isoformat(timespec="seconds"))
+        if done_all:
+            if deadline:
+                self.db.kv_set("discover_cursor", "0")
+            self.db.kv_set("last_discovery", datetime.now().isoformat(timespec="seconds"))
         return counts
 
     # ---------- preparação ----------
@@ -297,6 +319,11 @@ class Pipeline:
             return False
         reason = str(cls.get("reason") or "")
         return bool(re.search(r"desenvolv|\bdev\b|programa[cç]", reason, re.I)) and not NOT_IT_RE.search(reason)
+
+    def _promising(self, job: Job) -> bool:
+        from .areas import DEV_RE, area_of
+        t = job.title or ""
+        return bool(DEV_RE.search(t) or area_of(t, list(self.s.filters.adjacent_areas or [])) or self._track(job))
 
     def _airline(self, job: Job) -> bool:
         from .airlines import is_airline
@@ -566,8 +593,16 @@ class Pipeline:
     def prepare_all(self, limit: int | None = None, http_workers: int = 2) -> tuple[int, int]:
         """Classifica as vagas 'new'. Vagas que não precisam do navegador (LinkedIn público) rodam em threads
         paralelas ao navegador, que cuida do Indeed."""
-        jobs = self.db.list_jobs(status="new", limit=limit or 2000)
-        needs_browser = lambda j: getattr(self._source(j.source), "needs_browser", True)
+        jobs = self.db.list_jobs(status="new", limit=5000)
+        if limit:
+            # lote: primeiro os títulos de dev/áreas escolhidas, depois as mais novas (18/11: o lote inteiro era de vagas
+            # fora de TI vindas das buscas por texto, e as boas esperavam horas)
+            jobs.sort(key=lambda j: (0 if self._promising(j) else 1))
+            jobs = jobs[:limit]
+        # Gupy sem descrição (a API às vezes não traz) abre a página: precisa do navegador, que não pode ser usado de
+        # outra thread ("Cannot switch to a different thread", 37 vagas em 18/11)
+        needs_browser = lambda j: getattr(self._source(j.source), "needs_browser", True) or (
+            not (j.description or "").strip() and getattr(self._source(j.source), "details_need_browser", False))
         browser_jobs = [j for j in jobs if needs_browser(j)]
         http_jobs = [j for j in jobs if not needs_browser(j)]
         total = len(jobs)

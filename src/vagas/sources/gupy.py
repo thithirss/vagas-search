@@ -42,6 +42,7 @@ def _get_json(url: str) -> dict | list | None:
 class GupySource(Source):
     name = "gupy"
     needs_browser = False
+    details_need_browser = True   # fetch_details abre a página: nunca chamar de thread de HTTP
 
     def search(self, browser: Browser, page: Page | None, s: Search, max_pages: int) -> list[Found]:
         out: list[Found] = []

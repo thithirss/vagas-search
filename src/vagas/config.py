@@ -170,6 +170,10 @@ class Limits(BaseModel):
     long_break_minutes: tuple[int, int] = (6, 15)
     active_hours: tuple[str, str] = ("08:00", "23:30")
     discovery_interval_minutes: int = 120
+    # 18/11: 304 buscas levaram 3,5 h (LinkedIn freando com 429) e a classificação de 1.872 vagas mais 1 h, sem nenhum envio
+    # nesse tempo. Agora a busca roda em fatias de N minutos e a classificação em lotes, com envios entre uma e outra.
+    discovery_slice_minutes: int = 20
+    prepare_batch: int = 250
     inbox_interval_minutes: int = 30   # leitura do Gmail (retornos) enquanto o bot roda, inclusive fora da janela ativa
     # envio final com "Não sou um robô" (Indeed): avisa no Telegram e espera VOCÊ marcar; 0 = vira pendência na hora
     final_captcha_wait_minutes: float = 4.0
@@ -190,6 +194,8 @@ class BrowserCfg(BaseModel):
     timezone: str = "America/Sao_Paulo"
     headless: bool = False
     slow_mo_ms: int = 0
+    # Windows: janela do bot presa a UMA área de trabalho virtual (vagas/desktop.py). Fora dela a janela fica escondida.
+    pin_desktop: bool = False
 
 
 class LLMCfg(BaseModel):

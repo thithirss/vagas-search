@@ -186,6 +186,9 @@ browser:
   user_data_dir: data/profile
   # "chrome" usa o Google Chrome instalado (menos detectável). Vazio = Chromium do Playwright.
   channel: "chrome"
+  # Windows: deixa a janela do bot numa única área de trabalho virtual (Win+Ctrl+setas). Nas outras áreas ela fica
+  # escondida e o bot continua trabalhando. A área é escolhida no painel: Preferências > Extras > "Prender nesta área".
+  pin_desktop: false
   # Caminho do Chrome. Deixe VAZIO para usar o Chrome do sistema (channel acima) ou o Chromium.
   # Só preencha se você extraiu o Chrome sem root, como no README > Navegador.
   executable_path: ""

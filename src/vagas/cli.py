@@ -372,6 +372,7 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
     interval = timedelta(minutes=rt.s.limits.discovery_interval_minutes)
     last_error = ""
     last_processed = None   # vagas tentadas na última volta pela fila (0 = fila parada: não segura a busca)
+    stalled_new = None      # nº de vagas 'new' que um lote não conseguiu andar (evita repetir o mesmo lote em laço)
     inbox_every = rt.s.limits.inbox_interval_minutes
 
     def inbox_tick(with_browser: bool = False):
@@ -404,14 +405,26 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
                 stopflag.nap(min(secs, 1800, max(60, inbox_every * 60)))
                 continue
             inbox_tick(with_browser=True)
+            from .desktop import start_guard
+            start_guard(rt.s)   # vigia da área de trabalho: sobe de novo se tiver travado (18/11)
             last = rt.db.kv_get("last_discovery")
             due = not last or datetime.fromisoformat(last) + interval <= datetime.now()
             # A fila já existente tem prioridade sobre outra varredura completa — mas fila que não anda (só vagas de fonte
             # em pausa, como o Indeed pedindo login, ou de canal no teto) não pode segurar a busca: de 14 a 17/11 cinco
             # vagas do Indeed paradas na fila travaram a descoberta e o bot ficou 3 dias sem vaga nova.
-            if due and (not rt.db.queue(limit=1) or last_processed == 0):
-                counts = p.discover()
-                n, q = p.prepare_all()
+            queue_idle = not rt.db.queue(limit=1) or last_processed == 0
+            batch = rt.s.limits.prepare_batch
+            left_new = len(rt.db.list_jobs(status="new", limit=batch + 1))
+            if queue_idle and left_new and left_new != stalled_new:
+                # ainda há vagas novas de uma fatia anterior: classifica um lote e vai enviar antes de buscar mais
+                n, q = p.prepare_all(limit=batch)
+                after = len(rt.db.list_jobs(status="new", limit=batch + 1))
+                stalled_new = after if after >= left_new else None   # nada andou: não insiste até a próxima busca
+                console.print(f"[bold]classificação:[/] {n} vagas · {q} na fila · {after}{'+' if after > batch else ''} ainda novas")
+            elif queue_idle and (due or p.discovery_in_progress()):
+                counts = p.discover(max_minutes=rt.s.limits.discovery_slice_minutes)
+                n, q = p.prepare_all(limit=batch)
+                stalled_new = None
                 console.print(f"[bold]descoberta:[/] {sum(counts.values())} novas · {q} na fila")
                 if q:
                     notify(f"🔎 {sum(counts.values())} vagas novas, {q} na fila.")
@@ -440,6 +453,8 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
             nxt = min(600, max(60, inbox_every * 60))
             if last:
                 nxt = max(60, min(nxt, int((datetime.fromisoformat(rt.db.kv_get('last_discovery')) + interval - datetime.now()).total_seconds())))
+            if p.discovery_in_progress() or (rt.db.list_jobs(status="new", limit=1) and stalled_new is None):
+                nxt = 60   # volta de busca pela metade ou vagas ainda por classificar: segue logo
             waiting = len(rt.db.queue(limit=50))
             console.print(f"[dim]{'fila vazia' if not waiting else f'nada para enviar agora ({waiting} na fila esperando: fonte em pausa ou teto)'}"
                           f"; próximo ciclo em {nxt//60} min[/]")

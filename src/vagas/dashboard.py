@@ -553,6 +553,9 @@ def _pref_schema() -> list[dict]:
             F("filters.host_blacklist", "Sites bloqueados", "list", "Um por linha. Ex.: catho.com.br"),
         ]},
         {"id": "extras", "title": "Extras", "fields": [
+            F("browser.pin_desktop", "Janela do bot numa área de trabalho só (Windows)", "bool",
+              "A janela do Chrome do bot fica numa única área de trabalho virtual do Windows (Win + Ctrl + setas). Nas outras ela some — o bot continua trabalhando escondido. Para escolher a área, abra o painel nela e clique em \"Prender nesta área\".",
+              text="manter a janela do bot só na área de trabalho escolhida"),
             F("airlines.enabled", "Companhias aéreas", "bool", "Busca própria em companhias aéreas, janela de 30 dias e suporte de TI aceito nelas.", text="usar a trilha de companhias aéreas"),
         ]},
     ]
@@ -661,7 +664,24 @@ def prefs_state(data) -> dict:
         "changed": [k for k in prefs if k in fields],
         "searches_total": len(data.s.all_searches()),
         "run_running": "run" in running_tasks(),
+        "desktop": desktop_state(),
     }
+
+
+def desktop_state() -> dict | None:
+    """Áreas de trabalho virtuais do Windows: quantas, em qual você está e qual é a "de casa" do bot."""
+    from . import desktop as dk
+    if not dk.IS_WIN:
+        return None
+    try:
+        import uuid, winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\VirtualDesktops") as k:
+            raw, _ = winreg.QueryValueEx(k, "VirtualDesktopIDs")
+        ids = [str(uuid.UUID(bytes_le=bytes(raw[i:i + 16]))) for i in range(0, len(raw or b""), 16)]
+    except OSError:
+        ids = []
+    idx = lambda g: (ids.index(g) + 1) if g in ids else None
+    return {"count": len(ids) or 1, "current": idx(dk.current_desktop()), "home": idx(dk.load_home())}
 
 
 def save_prefs(data, changes: dict) -> dict:
@@ -1251,6 +1271,11 @@ def serve(settings: Settings, port: int = 8765) -> None:
                         login_browser(url, site); return self._json({"ok": True})
                     except RuntimeError as e:
                         return self._json({"error": str(e)}, 409)
+                if u.path == "/api/desktop/home":
+                    from .desktop import save_home
+                    if not save_home():
+                        return self._json({"error": "não consegui ler a área de trabalho atual"}, 409)
+                    return self._json({"ok": True, "desktop": desktop_state()})
                 if u.path == "/api/prefs":
                     try:
                         res = save_prefs(data, payload.get("changes") or {})
