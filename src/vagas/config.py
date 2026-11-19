@@ -247,6 +247,7 @@ class ApplyCfg(BaseModel):
     pause_before_submit: bool = False     # no modo interativo, pede confirmação antes de enviar
     min_fit_score: int = 0                # 0 = aplica para toda vaga de dev; >0 filtra por aderência
     apply_once_per_company_days: int = 0  # 0 = desligado; N = no máximo 1 candidatura por empresa a cada N dias
+    audit_rate: float = 0.0   # fração das candidaturas com a tela de cada etapa salva em data/audit (revisão visual)
     social_login_linkedin: bool = True    # site com "Entrar/Candidatar-se com LinkedIn": usa a conta do LinkedIn já logada
     max_attempts: int = 2                 # tentativas por vaga antes de marcar como failed definitivo
 
@@ -278,6 +279,19 @@ class LinkedInCfg(BaseModel):
     auto_apply: bool = False
 
 
+class SelfHeal(BaseModel):
+    """Agente que corrige falhas de inscrição com o Claude Code (vagas/selfheal.py). Desligado por padrão."""
+    enabled: bool = False
+    max_runs_per_day: int = 3          # cada rodada gasta a assinatura do Claude Code da pessoa
+    min_hours_between: float = 2
+    min_occurrences: int = 2           # falha que aconteceu uma vez só não dispara o agente
+    window_hours: int = 48
+    model: str = "sonnet"
+    max_turns: int = 40
+    timeout_minutes: int = 25
+    auto_restart: bool = True          # reinicia a leva com o código novo quando os testes passam
+
+
 class Settings(BaseModel):
     linkedin: LinkedInCfg = Field(default_factory=LinkedInCfg)
     discovery: Discovery = Field(default_factory=Discovery)
@@ -286,6 +300,7 @@ class Settings(BaseModel):
     filters: Filters = Field(default_factory=Filters)
     airlines: Airlines = Field(default_factory=Airlines)
     region_track: RegionTrack = Field(default_factory=RegionTrack)
+    selfheal: SelfHeal = Field(default_factory=SelfHeal)
     fitcultural: FitCultural = Field(default_factory=FitCultural)
     remote_access: bool = True     # link do painel para o celular (túnel Cloudflare + chave, vagas/remote.py)
     limits: Limits = Field(default_factory=Limits)

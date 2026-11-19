@@ -161,7 +161,9 @@ class GenericApplier(Applier):
         # SuccessFactors (careers.<empresa>.com, ex.: EY): o link real de candidatura fica em a.apply (oculto) ou no próprio
         # href do botão dropdown "Candidatar-se agora ▾"; navegar direto é mais robusto do que abrir o menu
         try:
-            direct = page.locator("a.apply[href*='/apply/'], a.dialogApplyBtn[href*='/apply/'], button.dropdown-toggle[href*='/apply/'], a[href*='/talentcommunity/apply/']").first
+            # Pandapé/InfoJobs: "Candidate-se com ▾" fica num bloco "dropdown-unstyled-menu" (que `usable` descarta como
+            # menu); o item "Seu currículo" (/ApplyCT/<id>) é o formulário SEM conta — vai direto nele (19/11)
+            direct = page.locator("a[href*='/ApplyCT/'], a.apply[href*='/apply/'], a.dialogApplyBtn[href*='/apply/'], button.dropdown-toggle[href*='/apply/'], a[href*='/talentcommunity/apply/']").first
             href = direct.get_attribute("href") if direct.count() else None
         except Exception:
             href = None

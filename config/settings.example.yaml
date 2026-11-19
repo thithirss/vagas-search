@@ -253,6 +253,7 @@ resume:
 
 apply:
   dry_run: false                # true = preenche tudo, tira screenshot e NÃO envia (bom para calibrar)
+  audit_rate: 0.0   # fração das candidaturas com a tela de cada etapa preenchida salva em data/audit (0 = desliga)
   pause_before_submit: false    # no modo --interactive, pergunta antes de cada envio
   min_fit_score: 60             # só aplica em vagas com aderência >= 60 (70 -> 60 em 29/10, pedido de volume)
   apply_once_per_company_days: 0
@@ -306,3 +307,13 @@ linkedin:
   image_quality: medium          # low | medium | high
   market_days: 60
   auto_apply: false              # true = o "Aplicar" salva sozinho no LinkedIn (com backup para desfazer)
+
+# Agente de correção (vagas/selfheal.py): pega falhas de inscrição repetidas e manda o Claude Code corrigir o código,
+# com testes; se os testes falharem, desfaz. Usa a SUA assinatura do Claude Code: limite de rodadas por dia.
+selfheal:
+  enabled: false
+  max_runs_per_day: 3
+  min_hours_between: 2
+  min_occurrences: 2
+  model: sonnet
+  max_turns: 40

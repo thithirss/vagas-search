@@ -442,6 +442,11 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
                 last_error = msg
                 stopflag.nap(120)
                 continue
+            try:   # agente de correção em segundo plano (selfheal.enabled; limites por dia)
+                from .selfheal import maybe_launch
+                maybe_launch(rt.db, rt.s, log=console.print)
+            except Exception:
+                pass
             if summary.processed:
                 _print_summary(summary)
                 notify(f"📨 Rodada: {summary.applied} aplicadas, {summary.failed} falhas, {summary.pending} pendentes. Hoje: {rt.db.applied_today()}.")
@@ -463,6 +468,16 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
         console.print("\n[dim]parando…[/]" if not stopflag.requested() else "")
     finally:
         rt.close()
+
+
+@app.command()
+def selfheal():
+    """Agente de correção: pega a falha corrigível mais frequente e manda o Claude Code resolver (com testes)."""
+    from . import selfheal as sh
+    s = load_settings()
+    from .db import DB
+    db = DB(s.db_path)
+    sh.run_once(db, s, log=console.print)
 
 
 @app.command()

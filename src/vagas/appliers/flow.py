@@ -471,7 +471,24 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
             btn_text = loc.inner_text(timeout=1000).strip()[:30]
         except Exception:
             btn_text = "?"
+        # conferência antes do clique (19/11, DevHunt/Pandapé: a data de nascimento foi preenchida e estava VAZIA na tela
+        # na hora de enviar — algum outro campo, como a busca de CEP, re-renderizou o bloco): refaz o que voltou vazio
+        filled_text = {e["q"]: e["a"] for e in answers_log if e.get("ok") and isinstance(e.get("a"), str)
+                       and e["a"] not in ("<currículo>", "<senha>")}
+        if filled_text:
+            try:
+                scope3, fields3 = forms.best_scope(page, root_selector)
+                for f3 in fields3:
+                    if f3.q.kind in ("text", "date", "tel", "email", "number", "textarea") and not f3.is_filled \
+                            and (f3.q.label or "")[:200] in filled_text:
+                        ok3 = forms.fill_field(scope3, f3, filled_text[(f3.q.label or "")[:200]], ctx.resume)
+                        console.print(f"[yellow]  etapa {step}: '{f3.q.label[:40]}' tinha voltado vazio; preenchi de novo "
+                                      f"({'ok' if ok3 else 'falhou'})[/]")
+            except Exception:
+                pass
         console.print(f"[dim]  etapa {step}: {len(fields)} campos, clicando '{btn_text}' ({kind})[/]")
+        if fields:
+            forms.audit_shot(page, job.id, step, ctx.settings)   # tela preenchida para revisão (apply.audit_rate)
         clicked = False
         last_err: Exception | None = None
         for attempt in range(3):

@@ -943,7 +943,7 @@ def _number_value(label: str, value) -> str:
     return v
 
 
-def _masked_date(loc, value) -> str | None:
+def _masked_date(loc, value, label: str = "") -> str | None:
     """Data ISO (1990-05-12) num campo com máscara -> "12/05/1990".
 
     O formato pode vir no placeholder ("DD/MM/AAAA"), no atributo `mask` do Angular
@@ -955,12 +955,15 @@ def _masked_date(loc, value) -> str | None:
         return None
     try:
         partes = [loc.get_attribute(a) or "" for a in ("placeholder", "aria-label", "mask", "data-mask", "inputmask", "title")]
+        # Pandapé (19/11): <input id="BirthDate" class="js_datepicker" type=text> com o rótulo num <label for=…>:
+        # nada disso estava nos atributos olhados, e a data ia em ISO (o site recusava e o campo ficava vazio)
+        ident = " ".join(loc.get_attribute(a) or "" for a in ("id", "name", "class"))
     except Exception:
         return None
-    txt = " ".join(partes)
+    txt = " ".join(partes + [label or ""])
     up = txt.upper()
     mascara_digitos = re.search(r"0{2}\s*/\s*0{2}\s*/\s*0{4}|9{2}\s*/\s*9{2}\s*/\s*9{4}|#{2}\s*/\s*#{2}\s*/\s*#{4}", txt)
-    data_no_rotulo = re.search(r"nascimento|birth ?date|date of birth|\bdata\b", txt, re.I)
+    data_no_rotulo = re.search(r"nascimento|birth ?date|date of birth|\bdata\b", txt, re.I) or re.search(r"birth|datepicker|\bdate\b|nasc", ident, re.I)
     if not (DATE_MASK_RE.search(up) or mascara_digitos or data_no_rotulo):
         return None
     y, m, d = s.split("-")
@@ -1006,8 +1009,11 @@ def fill_field(scope: Scope, f: FormField, value: Any,
                resume_path: Path | str | Callable[[], Path | None] | None) -> bool:
     kind = f.q.kind
     loc = scope.locator(f.selector)
+    if isinstance(value, (list, tuple)) and kind in ("text", "textarea", "combobox"):
+        # resposta em lista (bullets) ia como "['a', 'b']" no campo Resumo da Pandapé (19/11)
+        value = ("\n" if kind == "textarea" else ", ").join(str(x).strip() for x in value if str(x).strip())
     if kind in ("combobox", "text", "date"):   # datepicker com máscara: digitar no formato do site
-        masked = _masked_date(loc, value)
+        masked = _masked_date(loc, value, f.q.label)
         if masked:
             for attempt in (re.sub(r"\D", "", masked), masked):   # máscara do site já põe as barras
                 try:
@@ -1019,14 +1025,34 @@ def fill_field(scope: Scope, f: FormField, value: Any,
                         pass
                     loc.type(attempt, delay=70)
                     h.tiny()
-                    got = re.sub(r"\D", "", loc.input_value() or "")
-                    if got == re.sub(r"\D", "", masked):
+                    raw = loc.input_value() or ""
+                    # só dígitos sem barra = campo SEM máscara (datepicker comum): tenta de novo com as barras
+                    if re.sub(r"\D", "", raw) == re.sub(r"\D", "", masked) and re.search(r"\D", raw):
                         _close_list(loc)   # fecha o datepicker sem Escape dentro de modal
                         return True
                 except Exception:
                     continue
+            try:   # datepicker que apaga o que é digitado: valor por JS + eventos (o site valida no change)
+                loc.evaluate("(e, v) => { e.value = v; ['input','change','blur'].forEach(t => e.dispatchEvent(new Event(t, {bubbles: true}))); }", masked)
+                _close_list(loc)
+                if re.sub(r"\D", "", loc.input_value() or "") == re.sub(r"\D", "", masked):
+                    return True
+            except Exception:
+                pass
     try:
         if kind == "file":
+            # currículo só em campo que aceita PDF/Word e não é foto, laudo de PCD ou documento pessoal (19/11:
+            # o PDF foi para "Adicionar Foto" e para "Laudos anexados" na Pandapé)
+            try:
+                accept = (loc.get_attribute("accept") or "").lower()
+                ident = " ".join(loc.get_attribute(a) or "" for a in ("id", "name", "class")) + " " + (f.q.label or "")
+            except Exception:
+                accept, ident = "", f.q.label or ""
+            if accept and not re.search(r"pdf|application/|\*/\*", accept):
+                return False
+            if re.search(r"laudo|report|atestado|\bcid\b|defici|foto|photo|avatar|imagem|image|cropit|picture|selfie|rg\b|cnh|comprovante", ident, re.I) \
+                    and not re.search(r"curr[ií]culo|\bcv\b|resume", ident, re.I):
+                return False
             rp = _resolve_resume(resume_path)
             if not rp:
                 return False
@@ -1087,7 +1113,11 @@ def fill_field(scope: Scope, f: FormField, value: Any,
         s = str(value)
         if re.search(r"somente n[uú]meros|apenas n[uú]meros|s[oó] n[uú]meros|only numbers|digits only|sem pontua", f.q.label or "", re.I):
             s = re.sub(r"\D", "", s)   # "CPF (Somente números)", "CEP (apenas números)"
-        if kind == "tel":
+        # telefone em campo de TEXTO também (Pandapé, 19/11: "Telefone" é type=text com padrão ^\d{2}-?\d{8,9}$ e o
+        # "+55 11 9…" virava "55-119999999"): o padrão brasileiro é DDD + número, sem +55
+        phone_like = kind == "tel" or (kind == "text" and re.search(r"telefone|celular|whats|phone|mobile|\bfone\b|contato", (f.q.label or ""), re.I)
+                                       and re.fullmatch(r"\+?[\d\s().\-]{8,}", s.strip()))
+        if phone_like:
             # seletor de país ao lado (intl-tel-input / vue-tel-input: Recrutei, InHire) -> só o número nacional
             try:
                 has_country = bool(loc.evaluate(
@@ -1101,7 +1131,11 @@ def fill_field(scope: Scope, f: FormField, value: Any,
                     pt_page = bool(loc.evaluate("el => /^pt/i.test(el.ownerDocument.documentElement.lang || '')"))
                 except Exception:
                     pt_page = False
-            if f.prefix or has_country or pt_page or re.search(r"\+55|brasil", (f.q.label or "").lower()):
+            try:   # só fica com +55 quando o próprio campo mostra o formato internacional ("+55 …", "+1 …")
+                wants_intl = bool(re.match(r"\s*\+\d", loc.get_attribute("placeholder") or "")) and not has_country
+            except Exception:
+                wants_intl = False
+            if f.prefix or has_country or pt_page or not wants_intl or re.search(r"\+55|brasil", (f.q.label or "").lower()):
                 digits = re.sub(r"\D", "", s)
                 if digits.startswith("55") and len(digits) > 11:
                     digits = digits[2:]
@@ -1626,6 +1660,33 @@ def dump_learn(page: Page, job_id: str, ats: str, fields: list[FormField], note:
         "fields": [{"id": f.q.id, "label": f.q.label, "kind": f.q.kind, "options": f.q.options, "required": f.q.required, "current": ("<senha>" if f.q.kind == "password" and f.q.current else f.q.current)} for f in fields],
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     return d
+
+
+def audit_shot(page: Page, job_id: str, step: int, settings) -> Path | None:
+    """Tela da etapa JÁ PREENCHIDA, antes de clicar em avançar/enviar (pedido do usuário, 19/11: revisar visualmente o
+    que o bot preenche — a data de nascimento ia trocada). Vale para uma fração das candidaturas
+    (`apply.audit_rate`; 0 desliga) e fica em data/audit/<data>/<vaga>/stepN.png, junto com os valores dos campos."""
+    import random
+    rate = float(getattr(settings.apply, "audit_rate", 0) or 0)
+    if rate <= 0:
+        return None
+    key = re.sub(r"[^a-zA-Z0-9_-]", "_", job_id)
+    if key not in _AUDIT_PICK:
+        _AUDIT_PICK[key] = random.random() < rate
+    if not _AUDIT_PICK[key]:
+        return None
+    from datetime import date
+    d = DATA_DIR / "audit" / date.today().isoformat() / key
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / f"step{step}.png"
+    try:
+        page.screenshot(path=str(p), full_page=True, timeout=15000)
+        return p
+    except Exception:
+        return None
+
+
+_AUDIT_PICK: dict[str, bool] = {}
 
 
 def screenshot_evidence(page: Page, job_id: str) -> Path | None:

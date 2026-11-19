@@ -170,6 +170,12 @@ class RunSummary:
     items: list[tuple[str, str, str]] = field(default_factory=list)
 
 
+def _offline_reason(reason: str | None) -> bool:
+    """Motivo de falha com erro de rede ("site externo não abriu", goto…) e a internet fora do ar agora."""
+    from .netcheck import offline_error
+    return offline_error(reason)
+
+
 class Pipeline:
     def __init__(self, settings: Settings, db: DB, browser: Browser, llm: LLM, profile: dict, qa: QAEngine,
                  dry_run: bool = False, interactive: bool = False, confirm: Callable[[str], bool] | None = None):
@@ -394,6 +400,11 @@ class Pipeline:
             try:
                 src.fetch_details(self.browser, page, job)
             except Exception as e:
+                from .netcheck import offline_error, wait_online
+                if offline_error(e):   # internet caiu: a vaga não tem culpa (18/11: 317 vagas perdidas assim)
+                    self.db.set_status(job.id, job.status if job.status in ("new", "queued") else "queued", "sem internet; volta quando a conexão voltar")
+                    wait_online()
+                    return False
                 job.attempts += 1
                 self.db.save_job(job)
                 self.db.set_status(job.id, "queued" if job.attempts < self.s.apply.max_attempts else "failed", f"detalhes falharam: {str(e)[:120]}")
@@ -830,6 +841,9 @@ class Pipeline:
             self.db.log("error", f"currículo falhou em {job.id}: {e}", job.id)
             return FlowResult("failed", f"currículo falhou: {str(e)[:150]}")
         except Exception as e:
+            from .netcheck import offline_error
+            if offline_error(e):
+                return FlowResult("offline", "sem internet")
             self.db.log("error", f"applier {applier.name} explodiu: {e}", job.id)
             return FlowResult("failed", f"exceção em {applier.name}: {str(e)[:150]}")
 
@@ -896,6 +910,14 @@ class Pipeline:
             self.pacer.mark_limit_hit(job)
             job.status, job.reason = "queued", res.reason
             self.db.save_job(job)
+        elif res.status == "offline" or (res.status == "failed" and _offline_reason(res.reason)):
+            # internet caiu no meio: devolve a tentativa, volta para a fila e espera a conexão
+            from .netcheck import wait_online
+            job.attempts = max(0, job.attempts - 1)
+            job.status, job.reason = "queued", "sem internet; volta quando a conexão voltar"
+            self.db.save_job(job)
+            wait_online()
+            return FlowResult("blocked", "sem internet")
         elif res.status == "blocked":
             # o SITE barrou o robô (Cloudflare do Indeed), não a vaga: devolve a tentativa e pausa a fonte
             job.attempts = max(0, job.attempts - 1)

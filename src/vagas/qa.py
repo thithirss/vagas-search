@@ -721,6 +721,25 @@ class QAEngine:
         opts = f.options or []
         facts = self.profile.get("facts") or {}
         yesno = bool(opts) and len(opts) <= 4 and YESNO_OPT_RE.search(" | ".join(opts))
+        # 19/11 (Pandapé/Smart Sky, visto na captura): faixa salarial em dois campos "Entre R$" / "e R$" ia com o MESMO
+        # valor (o site exige mínimo < máximo); título e resumo do perfil profissional; jornada desejada.
+        if job is not None and f.kind in ("text", "number") and re.fullmatch(r"(entre|de|minim\w*|min|e|ate|a|maxim\w*|max)\s+r\$.*", nl):
+            if re.match(r"(entre|de|minim\w*|min)\b", nl):
+                return salary_answer(self.profile, job, numeric=True, label=f.label)
+            if re.match(r"(e|ate|a|maxim\w*|max)\b", nl):
+                v = salary_answer(self.profile, job, numeric=True, label=f.label)
+                if v and v.isdigit():
+                    return str(int(round(int(v) * 1.2 / 500.0)) * 500)
+        if f.kind in ("text", "textarea") and re.fullmatch(r"(seu )?titulo( profissional)?|headline|titulo do perfil", nl) and self.profile.get("headline"):
+            return str(self.profile["headline"])
+        if f.kind == "textarea" and re.fullmatch(r"(seu )?(resumo|sobre voce|apresentacao)( profissional)?|summary|about( you)?", nl) and self.profile.get("summary"):
+            return str(self.profile["summary"]).strip()
+        if job is not None and f.kind in ("text",) and re.fullmatch(r"(posto|cargo|vaga|funcao) (desejad[oa]|pretendid[oa]|de interesse)", nl):
+            return re.sub(r"\s+[-|–]\s+.*$", "", job.title or "").strip() or None   # "X - Banco de Talentos" -> "X"
+        if opts and re.search(r"jornada|turno|horario (de trabalho|desejado)|carga horaria", nl):
+            m = next((o for o in opts if re.search(r"integral|full ?time|comercial|40 ?h", o, re.I)), None)
+            if m:
+                return m
         # caixa que declara deficiência ("♿ Portadores de condições especiais"): nunca marcar se não é PCD
         # (olha também o rótulo cru: "♿️ (Portadores de condições especiais)" vira "" depois de normalizar)
         raw_ascii = unicodedata.normalize("NFKD", f.label or "").encode("ascii", "ignore").decode().lower()
@@ -778,8 +797,21 @@ class QAEngine:
         if re.search(r"(possui|tem|tenha) (algum |alguma )?(familiar|parente|amig[oa])|parentes? (na|no|que trabalh)|"
                      r"conhece (alguem|alguma pessoa|algum (colaborador|funcionario))", nl) and yesno:
             return best_option("Não", opts) or best_option("No", opts)
+        # "Você possui grau de parentesco com algum de nossos Elovers?" (19/11: virava pendência)
+        if yesno and re.search(r"(possui|tem|ha) (algum )?(grau de )?parentesco|parentesco com (algum|alguem|colaborador|funcionari)", nl):
+            return best_option("Não", opts) or best_option("No", opts)
         if f.kind in ("text", "textarea") and re.search(r"(nome e )?grau de parentesco|nome do (familiar|parente)", nl):
             return "Não se aplica"
+        # "Você reside em Ponta Grossa/PR?": Sim só se a cidade do perfil está na pergunta
+        if yesno and re.search(r"\b(reside|mora|resides|live) (em|na|no|nas|nos|in)\b", nl):
+            pv = self.profile.get("personal") or {}
+            cidade = normalize(re.split(r"\s*[-,/(]\s*", str(pv.get("city") or ""))[0])   # "Campinas - SP" -> "campinas"
+            return best_option("Sim" if cidade and cidade in nl else "Não", opts) or best_option("Yes" if cidade and cidade in nl else "No", opts)
+        # encontros presenciais periódicos / se locomover até a vaga: só remoto, a não ser que a vaga seja na região
+        if yesno and re.search(r"encontros? presencia|presencialmente (de forma )?(periodic|eventual|quando)|locomover ate|deslocar(-se)? ate|"
+                               r"viagens? (periodicas|ocasionais) (ao|para o) escritorio", nl):
+            local = ((getattr(job, "classification", None) or {}).get("work_model") in ("onsite", "hybrid"))
+            return best_option("Sim" if local else "Não", opts) or best_option("Yes" if local else "No", opts)
         # "É ex-colaborador do banco BV?" / "Trabalha como terceiro no BV?": só Sim se a empresa está nas experiências
         if re.search(r"\bex-? ?(colaborador|funcionari|empregad)|trabalha (como )?terceiro|presta(ou)? servicos? (como terceiro|para)", nl) and opts:
             empresas = self._former_employers()

@@ -206,6 +206,7 @@ class LinkedInEasyApplyApplier(Applier):
                 return res
             btn = LinkedInSource.apply_button(page)
             if btn is None:
+                forms.dump_learn(page, job.id, "linkedin", [], "botão de candidatura não encontrado", 0)
                 return FlowResult("failed", "botão de candidatura não encontrado")
         if btn is not None and _button_kind(btn) == "external":
             console.print("[dim]  a vaga virou candidatura externa; redirecionando para o fluxo externo[/]")
@@ -308,6 +309,7 @@ class LinkedInExternalApplier(Applier):
                 return res
             btn = LinkedInSource.apply_button(page)
             if btn is None:
+                forms.dump_learn(page, job.id, "linkedin", [], "botão de candidatura não encontrado", 0)
                 return FlowResult("failed", "botão de candidatura não encontrado")
         if _button_kind(btn) == "easy_apply":
             console.print("[dim]  a vaga está em Easy Apply; redirecionando para o modal[/]")
@@ -434,4 +436,6 @@ class LinkedInAutoApplier(Applier):
             return LinkedInEasyApplyApplier().apply(ctx, page, job)
         if job.apply_type == "external":
             return LinkedInExternalApplier().apply(ctx, page, job)
+        # sem tela salva o agente de correção (selfheal) não tinha o que analisar (19/11)
+        forms.dump_learn(page, job.id, "linkedin", [], "não identifiquei o botão de candidatura", 0)
         return FlowResult("failed", "não identifiquei o botão de candidatura")
