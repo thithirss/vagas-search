@@ -178,6 +178,21 @@ select.st-sel { width: auto; padding: 3px 8px; font-size: 12px; }
 .card .meta { font-size: 12px; color: var(--ink-3); } .card .q { font-weight: 500; }
 .card .link { font-size: 12.5px; word-break: break-all; }
 .card .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.pending-job > summary {
+  cursor      : pointer;
+  font-weight : 700;
+}
+.pending-job > summary .meta {
+  display     : inline;
+  margin-left : 8px;
+  font-weight : 400;
+}
+.pending-question {
+  display     : grid;
+  gap         : 8px;
+  padding-top : 12px;
+  border-top  : 1px solid var(--border);
+}
 
 /* drawer */
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(660px, 94vw); transform: translateX(105%); transition: transform .25s cubic-bezier(.2,.8,.2,1); z-index: 20; background: var(--surface); border-left: 1px solid var(--border); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
@@ -886,12 +901,22 @@ views.descartadas = async () => {
 
 views.falhas = async () => {
   const rows = (await api('/api/jobs?status=all&limit=800')).filter(j => j.attempts > 0 && !['applied','skipped','dry_run'].includes(j.status));
+  const failures = await api('/api/failures');
   return () => {
   setHead('Falhas e tentativas', `${rows.length} vagas que a ferramenta tentou e não concluiu`);
-  $('#content').innerHTML = `<section class="panel span12">${searchBox('Buscar por vaga, empresa ou motivo')}${table(['status','vaga','canal','tent.','motivo',''],
+  $('#content').innerHTML = `<section class="panel span12"><h2>Padrões de falha <small>últimos 30 dias · vagas afetadas</small></h2>
+    ${table(['plataforma','tipo','vagas'], (failures.groups||[]).map(g=>`<tr><td>${esc(g.platform)}</td><td>${esc(g.category)}</td><td>${g.count}</td></tr>`).join(''), 'sem padrões registrados')}
+    <button class="btn" id="analyze-failures">Analisar padrões com IA</button>
+    <p class="muted small">Análise no máximo uma vez por dia, com pelo menos 3 vagas afetadas. Recomendações para revisão.</p>
+    ${failures.stale && failures.analysis?.at ? '<p class="muted small">Há novos dados desde a última análise.</p>' : ''}
+    ${(failures.analysis?.recommendations||[]).map(r=>`<p><b>${esc(r.platform)} · ${r.count} vagas</b> — ${esc(r.fix)}</p>`).join('')}</section>
+    <section class="panel span12">${searchBox('Buscar por vaga, empresa ou motivo')}${table(['status','vaga','canal','tent.','motivo',''],
     rows.map(j => `<tr class="row" data-job="${esc(j.id)}"><td>${st(j.status)}</td><td>${jobCell(j)}</td><td>${esc(channel(j))}</td><td>${j.attempts}</td><td class="muted">${esc((j.reason||'').slice(0,140))}</td><td style="white-space:nowrap"><button class="btn small" data-requeue="${esc(j.id)}">Tentar de novo</button> <button class="btn small ghost" data-skip="${esc(j.id)}">Pular</button></td></tr>`).join(''),
     'nenhuma falha pendente')}</section>`;
   bindRows(); bindSkip(); bindRequeue(); bindSearch();
+  $('#analyze-failures').addEventListener('click', async () => {
+    if (await act($('#analyze-failures'), () => post('/api/failures/analyze', {}))) route();
+  });
   };
 };
 
@@ -899,33 +924,46 @@ views.pendencias = async () => {
   const rows = await api('/api/pending');
   return () => {
   const notes = rows.filter(p => p.is_note), qs = rows.filter(p => !p.is_note);
-  setHead('Precisa de você', rows.length ? `${qs.length} pergunta(s) de formulário e ${notes.length} aviso(s)` : 'nada pendente');
+  const qgroups = [...qs.reduce((groups, p) => {
+    const key = p.title || p.company ? `${(p.company || '').trim().toLowerCase()}\0${(p.title || '').trim().toLowerCase()}` : (p.job_id || `question:${p.id}`);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+    return groups;
+  }, new Map()).values()];
+  setHead('Precisa de você', rows.length ? `${qgroups.length} vaga(s) com ${qs.length} pergunta(s) e ${notes.length} aviso(s)` : 'nada pendente');
   const meta = p => `<div class="meta">${fmtDT(p.created_at)}${p.title ? ` · ${esc(p.title)} · ${esc(p.company)}` : ''}${p.job_status ? ` · ${st(p.job_status)}` : ''}</div>`;
-  const qcard = p => `<div class="card" data-q="${p.id}">${meta(p)}<div class="q">${esc(p.question)}</div>
+  const question = p => `<div class="pending-question" data-q="${p.id}"><div class="q">${esc(p.question)}</div>
     ${p.options.length ? `<select class="ans"><option value="">escolha…</option>${p.options.map(o=>`<option ${o===p.suggested?'selected':''}>${esc(o)}</option>`).join('')}</select>` : `<input class="ans" value="${esc(p.suggested||'')}" placeholder="sua resposta">`}
-    <div class="acts"><button class="btn primary" data-answer="${p.id}">Responder e recolocar na fila</button><button class="btn" data-done="${p.id}">Ocultar</button><button class="btn danger" data-drop="${p.id}">Descartar vaga</button></div>
+    <div class="acts"><button class="btn primary" data-answer="${p.id}">Responder e recolocar na fila</button></div>
     <div class="small muted">A resposta fica salva no banco de respostas e vale para as próximas vagas.</div></div>`;
+  const qcard = group => {
+    const unique  = [...group.reduce((items, p) => items.has(`${p.question}\0${JSON.stringify(p.options)}`) ? items : items.set(`${p.question}\0${JSON.stringify(p.options)}`, p), new Map()).values()];
+    const dropIds = group.map(p => p.id).join(',');
+    return `<details class="card pending-job"><summary>${esc(group[0].title || 'Vaga sem título')} · ${esc(group[0].company || 'empresa não informada')} · ${unique.length} pergunta(s)${group.length > unique.length ? ` · ${group.length} publicações agrupadas` : ''}<span class="meta">${fmtDT(group[0].created_at)}${group[0].job_status ? ` · ${st(group[0].job_status)}` : ''}</span></summary>${unique.map(question).join('')}<div class="acts"><button class="btn danger" data-drop="${dropIds}">${group.length > 1 ? `Descartar as ${group.length} publicações` : 'Descartar vaga'}</button></div></details>`;
+  };
   const ncard = p => `<div class="card" data-q="${p.id}">${meta(p)}<div class="q">${esc(p.question.replace(/\s*(em:)?\s*https?:\/\/\S+/g, '').trim())}</div>
     ${p.url ? `<a class="link" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>` : ''}
     <div class="acts">${p.url ? `<button class="btn primary" data-open="${esc(p.url)}" title="Abre um Chrome comum com o perfil do bot: o login fica salvo para o bot">Abrir no navegador do bot</button>` : ''}
       ${p.job_id ? `<button class="btn" data-resolved="${p.id}">Já resolvi, recolocar na fila</button>` : `<button class="btn" data-done="${p.id}">Já resolvi</button>`}
-      ${p.job_id ? `<button class="btn ghost" data-done="${p.id}">Ocultar</button><button class="btn danger" data-drop="${p.id}">Descartar vaga</button>` : ''}</div></div>`;
+      ${p.job_id ? `<button class="btn danger" data-drop="${p.id}">Descartar vaga</button>` : ''}</div></div>`;
   $('#content').innerHTML = `
-    <section class="panel span12"><h2>Perguntas de formulário <small>${qs.length}</small></h2><div class="cards">${qs.length ? qs.map(qcard).join('') : '<div class="empty">Nenhuma pergunta pendente.</div>'}</div></section>
+    <section class="panel span12"><h2>Vagas com perguntas de formulário <small>${qgroups.length} vagas · ${qs.length} perguntas</small></h2><div class="cards">${qgroups.length ? qgroups.map(qcard).join('') : '<div class="empty">Nenhuma pergunta pendente.</div>'}</div></section>
     <section class="panel span12"><h2>Avisos e ações manuais <small>${notes.length} · logins, contas em portais, questionários</small></h2>
       ${notes.some(p => p.url) ? '<div class="small muted" style="margin:-6px 0 12px">"Abrir no navegador do bot" abre um Chrome comum com o perfil do bot. Faça o login, feche a janela e clique em "Já resolvi". Só funciona com o bot parado.</div>' : ''}
       <div class="cards">${notes.length ? notes.map(ncard).join('') : '<div class="empty">Nenhum aviso.</div>'}</div></section>`;
   const reload = () => { route(); refreshCounts(); };
   $$('#content [data-answer]').forEach(b => b.addEventListener('click', async () => {
-    const el = b.closest('.card').querySelector('.ans'); const v = (el ? el.value : '').trim();
+    const el = b.closest('[data-q]').querySelector('.ans'); const v = (el ? el.value : '').trim();
     if (!v) { toast('Escolha ou escreva uma resposta antes', true); el?.focus(); return; }
     if (await act(b, () => post('/api/answer', {id: +b.dataset.answer, answer: v}), 'Resposta salva, vaga de volta à fila')) reload();
   }));
   $$('#content [data-done]').forEach(b => b.addEventListener('click', async () => { if (await act(b, () => post('/api/pending/dismiss', {id: +b.dataset.done, skip_job: false}), 'Ocultado')) reload(); }));
   $$('#content [data-resolved]').forEach(b => b.addEventListener('click', async () => { if (await act(b, () => post('/api/pending/resolved', {id: +b.dataset.resolved}), 'Vaga de volta à fila')) reload(); }));
   $$('#content [data-drop]').forEach(b => b.addEventListener('click', async () => {
-    if (!await confirmBox('Descartar a vaga?', 'Ela sai da fila e não é tentada de novo.', 'Descartar')) return;
-    if (await act(b, () => post('/api/pending/dismiss', {id: +b.dataset.drop, skip_job: true}), 'Vaga descartada')) reload();
+    const ids  = b.dataset.drop.split(',').map(Number);
+    const many = ids.length > 1;
+    if (!await confirmBox(many ? `Descartar as ${ids.length} publicações?` : 'Descartar a vaga?', many ? 'Todas saem da fila e não são tentadas de novo.' : 'Ela sai da fila e não é tentada de novo.', 'Descartar')) return;
+    if (await act(b, () => post('/api/pending/dismiss', {ids, skip_job: true}), many ? 'Publicações descartadas' : 'Vaga descartada')) reload();
   }));
   $$('#content [data-open]').forEach(b => b.addEventListener('click', () => act(b, () => post('/api/open', {url: b.dataset.open}), 'Chrome aberto. Faça o login e feche a janela.')));
   };
@@ -1374,7 +1412,7 @@ views.prefs = async () => {
   const paint = () => {
     $$('[data-k]', root).forEach(el => {
       const k = el.dataset.k, f = F[k], val = v[k];
-      if (document.activeElement === el && !['checkbox'].includes(el.type)) return;
+      if (document.activeElement === el && el.matches('input:not([type="checkbox"]), textarea, select')) return;
       if (el.dataset.val !== undefined) el.classList.toggle('on', +el.dataset.val === val);
       else if (el.dataset.days !== undefined) el.value = val % 24 ? '' : val / 24;
       else if (el.dataset.multi !== undefined) el.classList.toggle('on', (val || []).includes(el.dataset.multi));
@@ -1453,9 +1491,16 @@ async function openJob(id) {
   if (!id) return;
   let j; try { j = await api('/api/job/' + encodeURIComponent(id)); } catch (e) { toast('Não consegui abrir a vaga: ' + e.message, true); return; }
   const c = j.classification || {}; const app = j.application;
+  const assessment = c.fit_assessment;
+  const statusLabel = {matched:'atendido', partial:'parcial', gap:'lacuna', unknown:'sem evidência suficiente'};
+  const fitSection = `<div class="sec"><h4>Compatibilidade com seu perfil</h4>
+    ${assessment ? `<p>${assessment.score}% dos requisitos avaliados têm evidência total ou parcial no perfil. Esta análise complementa os filtros de candidatura.</p>
+      ${table(['requisito','tipo','avaliação','evidência do perfil'], (assessment.requirements||[]).map(r=>`<tr><td>${esc(r.requirement)}</td><td>${r.importance==='preferred'?'diferencial':'obrigatório'}</td><td>${esc(statusLabel[r.status]||r.status)}</td><td>${esc(r.evidence||'não encontrada')}</td></tr>`).join(''), 'sem requisitos avaliados')}` : '<p class="muted small">Ainda sem avaliação por evidências.</p>'}
+    <button class="btn" data-fitjob>${assessment?'Atualizar avaliação':'Avaliar compatibilidade com IA'}</button></div>`;
   $('#d-title').textContent = j.title || id; $('#d-co').innerHTML = `<span>${esc(j.company||'')}${j.location?` · ${esc(j.location)}`:''}</span>${st(j.status)}`;
   const canSend = !['applied'].includes(j.status);
   $('#d-body').innerHTML = `
+    ${fitSection}
     <div class="sec"><div class="kv"><div>links</div><div><a href="${esc(j.url)}" target="_blank" rel="noopener">página no ${esc(j.source)}</a>${j.external_url?` · <a href="${esc(j.external_url)}" target="_blank" rel="noopener">site da empresa</a>`:''}</div>
       <div>canal</div><div>${esc(channel(j))}</div><div>encontrada</div><div>${fmtDT(j.discovered_at)}${j.posted_at?` · publicada ${fmtDT(j.posted_at)}`:''}</div>
       ${j.reason?`<div>motivo</div><div>${esc(j.reason)}</div>`:''}<div>tentativas</div><div>${j.attempts}</div></div>
@@ -1473,6 +1518,9 @@ async function openJob(id) {
     <div class="sec"><h4>Linha do tempo</h4><div class="tl">${j.events.map(e=>`<div><span>${fmtDT(e.at)}</span>${esc(e.message)}</div>`).join('')||'<div class="muted">sem eventos</div>'}</div></div>`;
   $('#drawer').classList.add('open'); $('#scrim').classList.add('on'); $('#drawer').setAttribute('aria-hidden','false');
   bindSkip($('#d-body')); bindRequeue($('#d-body'));
+  $('#d-body [data-fitjob]')?.addEventListener('click', async e => {
+    if (await act(e.currentTarget, () => post(`/api/job/${encodeURIComponent(j.id)}/fit`, {}))) openJob(j.id);
+  });
   $('#d-body [data-applyjob]')?.addEventListener('click', async () => {
     if (!await confirmBox('Enviar candidatura de verdade?', `${j.title} · ${j.company}. Ignora as regras de 24h/remoto só para esta vaga.`, 'Enviar')) return;
     closeDrawer(); startTask('apply', {jobs: [j.id], force: true});

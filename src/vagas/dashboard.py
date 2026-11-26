@@ -70,6 +70,18 @@ class Data:
         except Exception:
             return {}
 
+    def _pending_count(self) -> int:
+        """Conta cargos/avisos pendentes, agrupando publicações repetidas da mesma empresa."""
+        rows = self.db.conn.execute(
+            "SELECT p.id, p.job_id, j.title, j.company FROM pending_questions p "
+            "LEFT JOIN jobs j ON j.id=p.job_id WHERE p.answered_at IS NULL"
+        ).fetchall()
+        return len({
+            ("job", (r["company"] or "").strip().casefold(), (r["title"] or "").strip().casefold())
+            if r["title"] or r["company"] else ("pending", r["job_id"] or r["id"])
+            for r in rows
+        })
+
     def overview(self) -> dict:
         c = self.db.conn
         today = date.today().isoformat()
@@ -117,7 +129,7 @@ class Data:
             "kpi": {
                 "applied_today": len(apps_today), "cap": self.s.limits.max_applications_per_day, "caps": self.s.limits.max_per_source_per_day,
                 "applied_total": len(apps), "found_today": sum(1 for j in jobs if (j["discovered_at"] or "")[:10] == today),
-                "queued": by_status.get("queued", 0) + by_status.get("new", 0), "pending": len(self.db.pending_questions()),
+                "queued": by_status.get("queued", 0) + by_status.get("new", 0), "pending": self._pending_count(),
                 "failed": by_status.get("failed", 0), "skipped_today": sum(reasons.values()), "cost_today_usd": round(cost_today, 3),
                 "budget": self._budget_status(),
                 # retornos do e-mail: quantos pedem ação sua (entrevista, teste, etapa) e ainda não foram marcados como feitos
@@ -238,9 +250,17 @@ class Data:
     def dismiss_pending(self, qid: int, skip_job: bool) -> None:
         """Marca a pendência como resolvida; com skip_job=True a vaga é descartada e não volta para a fila."""
         r = self.db.conn.execute("SELECT job_id FROM pending_questions WHERE id=?", (qid,)).fetchone()
-        self.db.answer_pending(qid, "descartado no painel")
         if r and r[0] and skip_job:
+            self.db.conn.execute(
+                "UPDATE pending_questions SET answer=?, answered_at=? WHERE job_id=? AND answered_at IS NULL",
+                ("descartado no painel", datetime.now().isoformat(timespec="seconds"), r[0]),
+            )
+            self.db.conn.commit()
             self.db.set_status(r[0], "skipped", "descartada por você no painel")
+        else:
+            self.db.answer_pending(qid, "descartado no painel")
+            if r and r[0]:
+                self._sync_pending_job(r[0])
 
     def responses(self) -> dict:
         """Retornos das empresas lidos do e-mail (vagas/inbox.py), do mais recente para o mais antigo."""
@@ -261,21 +281,48 @@ class Data:
         self.db.conn.commit()
 
     def resolve_pending(self, qid: int) -> None:
-        """Aviso resolvido por você (ex.: logou no portal): fecha a pendência e devolve a vaga para a fila."""
+        """Fecha um aviso e só libera a vaga quando nenhuma outra pendência restar."""
         r = self.db.conn.execute("SELECT job_id FROM pending_questions WHERE id=?", (qid,)).fetchone()
         self.db.answer_pending(qid, "resolvido no painel")
-        j = self.db.get_job(r[0]) if r and r[0] else None
-        if j and j.status not in ("applied", "skipped"):
-            j.status, j.reason, j.attempts = "queued", None, 0
-            self.db.save_job(j)
+        if r and r[0]:
+            self._sync_pending_job(r[0], reset_attempts=True)
+
+    def _sync_pending_job(self, job_id: str, reset_attempts: bool = False) -> None:
+        """Mantém o status da vaga coerente com suas pendências abertas."""
+        pending = self.db.conn.execute(
+            "SELECT 1 FROM pending_questions WHERE job_id=? AND answered_at IS NULL LIMIT 1",
+            (job_id,),
+        ).fetchone()
+        self.db.conn.execute(
+            "UPDATE jobs SET status=?, reason=?, attempts=CASE WHEN ? THEN 0 ELSE attempts END "
+            "WHERE id=? AND status NOT IN ('applied','skipped')",
+            (
+                "pending_question" if pending else "queued",
+                "aguardando suas respostas" if pending else None,
+                reset_attempts and not pending,
+                job_id,
+            ),
+        )
+        self.db.conn.commit()
 
     def answer(self, qid: int, answer: str) -> None:
         from .qa import AnswerBank
         r = self.db.conn.execute("SELECT * FROM pending_questions WHERE id=?", (qid,)).fetchone()
         if not r: return
-        self.db.answer_pending(qid, answer)
         bank = AnswerBank(self.s.answers_path); bank.add(r["question"], answer, "user", options=json.loads(r["options"] or "[]"))
-        self.db.requeue_pending_jobs()
+        # A mesma pergunta pode estar aberta em várias cópias da vaga. Uma resposta resolve todas
+        # com as mesmas opções; cada vaga só volta à fila quando não restar pergunta pendente nela.
+        matches = self.db.conn.execute(
+            "SELECT id, job_id FROM pending_questions WHERE answered_at IS NULL AND question=? AND options=?",
+            (r["question"], r["options"]),
+        ).fetchall()
+        answered_at = datetime.now().isoformat(timespec="seconds")
+        self.db.conn.executemany(
+            "UPDATE pending_questions SET answer=?, answered_at=? WHERE id=?",
+            [(answer, answered_at, match["id"]) for match in matches],
+        )
+        for job_id in {match["job_id"] for match in matches if match["job_id"]}:
+            self._sync_pending_job(job_id)
 
     def courses(self) -> dict:
         p = CONFIG_DIR / "courses.yaml"
@@ -323,7 +370,7 @@ class Data:
         c, today = self.db.conn, date.today().isoformat()
         st = dict(c.execute("SELECT status, COUNT(*) FROM jobs GROUP BY status").fetchall())
         return {
-            "kpi": {"pending": len(self.db.pending_questions()),
+            "kpi": {"pending": self._pending_count(),
                     "responses_todo": c.execute("SELECT COUNT(*) FROM email_responses WHERE COALESCE(action,'')<>'' AND done=0").fetchone()[0],
                     "applied_total": c.execute("SELECT COUNT(*) FROM applications").fetchone()[0],
                     "queued": st.get("queued", 0) + st.get("new", 0),
@@ -557,6 +604,14 @@ def _pref_schema() -> list[dict]:
               "A janela do Chrome do bot fica numa única área de trabalho virtual do Windows (Win + Ctrl + setas). Nas outras ela some — o bot continua trabalhando escondido. Para escolher a área, abra o painel nela e clique em \"Prender nesta área\".",
               text="manter a janela do bot só na área de trabalho escolhida"),
             F("airlines.enabled", "Companhias aéreas", "bool", "Busca própria em companhias aéreas, janela de 30 dias e suporte de TI aceito nelas.", text="usar a trilha de companhias aéreas"),
+        ]},
+        {"id": "inteligencia", "title": "Inteligência do robô", "help": "Usa o modelo econômico e respeita o teto mensal de IA.", "fields": [
+            F("llm.understand_fields", "Entender campos desconhecidos", "bool", "Lê rótulo, instruções e opções antes de buscar a resposta no perfil.", text="interpretar campos ambíguos"),
+            F("llm.diagnose_forms", "Diagnosticar formulários travados", "bool", "Tenta uma correção diferente, com limite por candidatura.", text="corrigir formatos e confirmar opções"),
+            F("llm.assess_fit", "Compatibilidade com evidências", "bool", "Mostra requisitos atendidos, diferenciais e lacunas. Não altera seus filtros de candidatura.", text="comparar vaga com experiências e projetos"),
+            F("llm.personalize_answers", "Respostas abertas personalizadas", "bool", "Usa fatos do perfil e da vaga; respostas não são reaproveitadas entre empresas.", text="personalizar apresentações e respostas"),
+            F("llm.analyze_failures", "Aprender com padrões de falha", "bool", "Sugere correções na tela Falhas, no máximo uma análise de IA por dia.", text="analisar falhas recorrentes"),
+            F("llm.form_ai_max_per_job", "Chamadas extras por formulário", "int", "Compartilhado entre interpretação e diagnóstico. Zero desliga as chamadas extras.", min=0, max=10),
         ]},
     ]
 
@@ -1173,6 +1228,9 @@ def serve(settings: Settings, port: int = 8765) -> None:
                         return self._json({"error": "arquivo inválido"}, 400)
                     return self._file(lp.IMG / name)
                 if u.path == "/api/jobs": return self._json(data.jobs(qs.get("status"), qs.get("q"), int(qs.get("limit", 300)), qs.get("today") == "1"))
+                if u.path == "/api/failures":
+                    from .intelligence import failure_report
+                    return self._json(failure_report(data.db))
                 if u.path.startswith("/api/job/"):
                     j = data.job(unquote(u.path[len("/api/job/"):])); return self._json(j) if j else self._json({"error": "não encontrada"}, 404)
                 if u.path == "/api/applications": return self._json(data.applications())
@@ -1211,6 +1269,23 @@ def serve(settings: Settings, port: int = 8765) -> None:
                 return self._json({"error": "acesso negado"}, 401)   # ação pelo túnel só com o cookie da chave
             data = Data(load_settings())
             try:
+                if u.path == '/api/failures/analyze':
+                    from .intelligence import failure_report
+                    from .llm import LLM
+                    model = LLM(data.s.llm, data.db) if data.s.llm.analyze_failures else None
+                    return self._json(failure_report(data.db, model, enabled=data.s.llm.analyze_failures))
+                fit_match = re.fullmatch(r'/api/job/(.+)/fit', u.path)
+                if fit_match:
+                    from .intelligence import assess_job
+                    from .llm import LLM
+                    job = data.db.get_job(unquote(fit_match.group(1)))
+                    if not job: return self._json({'error': 'vaga não encontrada'}, 404)
+                    if not data.s.llm.assess_fit: return self._json({'error': 'ative a avaliação em Preferências'}, 400)
+                    result = assess_job(LLM(data.s.llm, data.db), data.db, data.profile(), job)
+                    if not result: return self._json({'error': 'avaliação indisponível; confira o orçamento e os eventos'}, 400)
+                    job.classification = dict(job.classification or {}, fit_assessment=result)
+                    data.db.save_job(job)
+                    return self._json(result)
                 if u.path == "/api/task":
                     try:
                         return self._json(start_task(payload.get("kind", ""), payload.get("args") or {}))
@@ -1224,7 +1299,10 @@ def serve(settings: Settings, port: int = 8765) -> None:
                         return self._json({"error": "escreva uma resposta antes de enviar"}, 400)
                     data.answer(int(payload["id"]), ans); return self._json({"ok": True})
                 if u.path == "/api/pending/dismiss":
-                    data.dismiss_pending(int(payload["id"]), bool(payload.get("skip_job"))); return self._json({"ok": True})
+                    ids = payload.get("ids") or [payload["id"]]
+                    for qid in dict.fromkeys(map(int, ids)):
+                        data.dismiss_pending(qid, bool(payload.get("skip_job")))
+                    return self._json({"ok": True})
                 if u.path == "/api/response/done":
                     data.set_response_done(int(payload["id"]), bool(payload.get("done", True))); return self._json({"ok": True})
                 if u.path == "/api/interview/new":

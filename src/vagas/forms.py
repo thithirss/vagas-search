@@ -14,7 +14,7 @@ from rapidfuzz import fuzz, process
 from . import humanize as h
 from .config import DATA_DIR
 from .errors import ResumeBuildError
-from .qa import FieldQ, best_option, _norm_opt
+from .qa import FieldQ, alt_values, best_option, _norm_opt
 
 Scope = Union[Page, Frame]
 
@@ -171,6 +171,9 @@ SCAN_JS = r"""
     const half = t.slice(0, Math.floor(t.length / 2)).trim();
     if (half && t.startsWith(half + ' ' + half)) t = t.slice(half.length).trim();
     t = t.replace(/\s+(Obrigat[oó]rio|Required)$/i, '');
+    // Indeed inclui título e instruções de telefone no mesmo label; o seletor termina em "Country".
+    const country = t.match(/\b(country|pa[ií]s)\s*(?:\*\s*)?(?:obrigat[oó]rio|required)?\s*$/i);
+    if (country && el.matches('select, [role="combobox"], [aria-haspopup]')) t = country[1];
     return t.slice(0, 300);
   };
   const groupLabel = (els) => {
@@ -285,6 +288,10 @@ SCAN_JS = r"""
       rec.kind = 'file'; rec.value = el.files && el.files.length ? 'has_file' : '';
     } else if (el.getAttribute('role') === 'combobox' || el.getAttribute('aria-autocomplete') || el.closest('[class*="select__control" i], [class*="autocomplete" i], .MuiAutocomplete-root, [class*="dropdown-select" i], [class*="react-select" i], [class*="Select-control" i], [role="combobox"], [role="listbox"], .v-select, .v-autocomplete, [class*="v-input__slot" i]')) {
       rec.kind = 'combobox'; rec.value = el.value || '';
+      if (!rec.value && tag !== 'input' && !el.querySelector('input')) {
+        const selected = textOf(el);
+        if (selected.length <= 120 && !PLACEHOLDER_RE.test(selected)) rec.value = selected;
+      }
       if (/multi[-_ ]?select/i.test(el.id || '') || el.getAttribute('aria-multiselectable') === 'true' || /multi[-_ ]?select/i.test(el.getAttribute('data-testid') || '')) rec.kind = 'multiselect';   // Indeed: lista com várias marcações
       if (el.getAttribute('list')) { const dl = byId(el, el.getAttribute('list')); if (dl) rec.options = Array.from(dl.options).map(o => o.value || textOf(o)); }
       // valor já escolhido em react-select
@@ -1015,7 +1022,7 @@ def fill_field(scope: Scope, f: FormField, value: Any,
     if kind in ("combobox", "text", "date"):   # datepicker com máscara: digitar no formato do site
         masked = _masked_date(loc, value, f.q.label)
         if masked:
-            for attempt in (re.sub(r"\D", "", masked), masked):   # máscara do site já põe as barras
+            for attempt in (masked, re.sub(r"\D", "", masked)):
                 try:
                     loc.click()
                     h.tiny()
@@ -1026,8 +1033,8 @@ def fill_field(scope: Scope, f: FormField, value: Any,
                     loc.type(attempt, delay=70)
                     h.tiny()
                     raw = loc.input_value() or ""
-                    # só dígitos sem barra = campo SEM máscara (datepicker comum): tenta de novo com as barras
-                    if re.sub(r"\D", "", raw) == re.sub(r"\D", "", masked) and re.search(r"\D", raw):
+                    got = re.sub(r"\D", "", raw)
+                    if got == re.sub(r"\D", "", masked) and re.search(r"\D", raw):
                         _close_list(loc)   # fecha o datepicker sem Escape dentro de modal
                         return True
                 except Exception:
@@ -1337,20 +1344,31 @@ def _fill_combobox(scope: Scope, loc: Locator, value: str, f: FormField) -> bool
         time.sleep(0.6)
         search = _dropdown_search_input(scope, exclude=loc)
         if search is not None:
-            try:
-                search.click(timeout=2000)
-                search.fill(value[:60])
-            except Exception:
+            country = bool(re.search(r"\b(pais|country)\b", _norm_opt(f.q.label)))
+            name = re.sub(r"\s*\(\+\d+\)\s*$", "", value).strip() if country else value
+            probes = [name]
+            if country:
+                probes += [v for v in alt_values(f.q.label, name) if v in ("Brasil", "Brazil")]
+            for probe in probes:
                 try:
-                    search.press_sequentially(value[:60], delay=50)
+                    search.click(timeout=2000)
+                    search.fill(probe[:60])
                 except Exception:
-                    pass
-            deadline = time.time() + 3.5
-            while time.time() < deadline:
-                time.sleep(0.6)
-                opts = _visible_options(scope) or [t for t in _visible_buttons_text(scope) if t not in before]
-                if opts and _click_matching_option(scope, value, opts):
-                    return True
+                    try:
+                        search.press("Control+a")
+                        search.press_sequentially(probe[:60], delay=50)
+                    except Exception:
+                        continue
+                deadline = time.time() + 3.5
+                while time.time() < deadline:
+                    time.sleep(0.6)
+                    opts = _visible_options(scope) or [t for t in _visible_buttons_text(scope) if t not in before]
+                    if opts and _click_matching_option(scope, probe, opts, min_score=100 if country else 72):
+                        return True
+            if country:
+                search.fill("")
+                _close_list(loc)
+                return False
         opts = _visible_options(scope) or [t for t in _visible_buttons_text(scope) if t not in before]
         if opts and _click_matching_option(scope, value, opts):
             return True

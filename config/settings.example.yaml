@@ -211,6 +211,13 @@ llm:
   # O que funcionou fica gravado por site e da próxima vez não usa IA.
   rescue_enabled: true
   rescue_max_per_job: 3
+  # Preferências > Inteligência do robô também permite ligar/desligar cada recurso.
+  understand_fields: true
+  diagnose_forms: true
+  assess_fit: true
+  personalize_answers: true
+  analyze_failures: true
+  form_ai_max_per_job: 3     # interpretação + diagnóstico; estratégias confirmadas são reutilizadas sem IA
   # Abaixo desta confiança a resposta do LLM vira pergunta para você (modo interativo) ou pendência
   min_answer_confidence: 0.6
   # Perguntas destes temas SEMPRE exigem resposta sua (uma vez; depois fica no banco de respostas)

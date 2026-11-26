@@ -290,7 +290,9 @@ class DB:
 
     def queue(self, limit: int = 500) -> list[Job]:
         rows = self.conn.execute(
-            "SELECT * FROM jobs WHERE status IN ('new','queued') ORDER BY discovered_at ASC LIMIT ?", (limit,)
+            "SELECT * FROM jobs WHERE status IN ('new','queued','pending_question') "
+            "AND NOT EXISTS (SELECT 1 FROM pending_questions p WHERE p.job_id=jobs.id AND p.answered_at IS NULL) "
+            "ORDER BY discovered_at ASC LIMIT ?", (limit,)
         ).fetchall()
         return [Job.from_row(r) for r in rows]
 
@@ -451,7 +453,8 @@ class DB:
 
     def requeue_pending_jobs(self) -> int:
         cur = self.conn.execute(
-            "UPDATE jobs SET status='queued', reason=NULL, updated_at=? WHERE status='pending_question'", (now(),)
+            "UPDATE jobs SET status='queued', reason=NULL, updated_at=? WHERE status='pending_question' "
+            "AND NOT EXISTS (SELECT 1 FROM pending_questions p WHERE p.job_id=jobs.id AND p.answered_at IS NULL)", (now(),)
         )
         self.conn.commit()
         return cur.rowcount

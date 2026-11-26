@@ -37,6 +37,35 @@ $env:PLAYWRIGHT_BROWSERS_PATH = "$PWD\.playwright-browsers"
   Mapeamento comportamental da Gupy também é automático; testes de raciocínio, técnicos e entrevistas ficam com você (lista, prazo e lembrete). Não precisa do Claude.
 - Detalhes do Windows (atalhos, parar/iniciar, armadilhas): `INSTRUCOES_WINDOWS.md`.
 
+## Inteligência do robô
+
+Em **Preferências → Inteligência do robô**, as cinco melhorias vêm ligadas:
+
+- Campos desconhecidos: interpreta rótulo, atributos, instruções próximas e opções para identificar o dado pedido.
+  A resposta pessoal continua vindo do perfil; a IA não gera documentos ou contatos que faltam.
+- Formulários travados: depois de falha de validação ou de avanço, tenta estratégias diferentes de formato
+  de telefone/data, confirmação de opção, número ou limite de caracteres. Cada estratégia é tentada uma vez
+  por campo, com até 3 chamadas extras de IA por candidatura. Não executa código sugerido pelo modelo.
+- Compatibilidade: no detalhe da vaga, mostra requisitos obrigatórios/diferenciais, atendimento e trechos do
+  perfil usados como evidência. A avaliação é complementar e não altera os filtros nem a nota original de triagem.
+  É gerada para vagas que entram na fila ou ao clicar em **Avaliar compatibilidade com IA**, com cache por vaga/perfil.
+- Respostas abertas: usa projetos e experiências reais, conectados à descrição da vaga. Exige referências
+  aos fatos do perfil e não grava respostas específicas de uma empresa como respostas genéricas.
+- Falhas recorrentes: a tela **Falhas e tentativas** agrupa vagas afetadas nos últimos 30 dias por plataforma
+  e categoria, com recomendações de correção. A IA recebe só as contagens agregadas. A análise é atualizada
+  automaticamente após falhas, no máximo uma vez por dia quando há pelo menos 3 vagas afetadas; também há botão no painel.
+
+As estratégias de formulário só são aprendidas por site depois de observar avanço para outra etapa sem erros.
+Todos os recursos usam o modelo econômico e o teto mensal existente; sem orçamento, as regras continuam funcionando.
+As novas opções são `llm.understand_fields`, `llm.diagnose_forms`, `llm.assess_fit`,
+`llm.personalize_answers`, `llm.analyze_failures` e `llm.form_ai_max_per_job`.
+
+Validação local sem chamadas reais à API:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest tests.test_intelligence tests.test_form_intelligence -v
+```
+
 ## Fit Cultural da Gupy (automático, sem IA)
 
 Muitas vagas da Gupy pedem um **teste de Fit Cultural**: 10 questões, cada uma com 4 frases para ordenar de 1 (mais

@@ -12,7 +12,9 @@ class BrowserClosedTest(unittest.TestCase):
 
     def test_apply_devolve_browser_closed(self):
         p = object.__new__(Pipeline)
-        p.s = SimpleNamespace(apply=SimpleNamespace(pause_before_submit=False))
+        p.s = SimpleNamespace(apply=SimpleNamespace(pause_before_submit=False),
+                              llm=SimpleNamespace(assess_fit=False))   # aderência por IA (ADJUSTS-IA) fora do teste
+        p.llm = None
         p.db = mock.Mock()
         p.qa = p.browser = p.profile = None
         p.dry_run = p.interactive = False

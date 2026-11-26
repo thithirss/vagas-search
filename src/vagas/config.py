@@ -224,6 +224,12 @@ class LLMCfg(BaseModel):
     # barato escolhe entre os elementos clicáveis da tela. O que funcionou fica gravado por site (sem IA na próxima).
     rescue_enabled: bool = True
     rescue_max_per_job: int = 3
+    understand_fields: bool = True
+    diagnose_forms: bool = True
+    assess_fit: bool = True
+    personalize_answers: bool = True
+    analyze_failures: bool = True
+    form_ai_max_per_job: int = Field(default=3, ge=0, le=10)
 
 
 class ResumeCfg(BaseModel):

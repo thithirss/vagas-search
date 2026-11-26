@@ -248,6 +248,7 @@ class FieldQ:
     options: list[str] = field(default_factory=list)
     required: bool = False
     current: str = ""
+    context: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -516,6 +517,12 @@ class QAEngine:
         return facts.get(key)
 
     def _rule(self, f: FieldQ, job: Job | None = None, siblings: list[str] | None = None) -> str | None:
+        if f.context.get('meaning') == 'phone_code' and f.kind in ('text', 'number', 'tel'):
+            personal = self.profile.get('personal') or {}
+            phone = str(personal.get('phone') or '')
+            prefix = re.match(r'\+(\d{1,3})(?=\s|\()', phone)
+            code = prefix.group(1) if prefix else ('55' if normalize(str(personal.get('country') or '')) in ('brasil', 'brazil', 'br') else '')
+            return (code if f.kind == 'number' else '+' + code) if code else None
         if f.kind == "password":
             import os
             pwd = os.environ.get("ATS_SIGNUP_PASSWORD", "").strip()
@@ -1044,6 +1051,11 @@ class QAEngine:
                 if pending_early is None:
                     self._pending_early = pending_early = []
                 pending_early.append(f); continue
+            if (getattr(self.cfg, 'personalize_answers', True) and f.kind in ('text', 'textarea')
+                    and OPEN_QUESTION_RE.search(normalize(f.label))
+                    and (f.required or not skip_optional)):
+                todo.append(f)
+                continue
             v = self._closed_answer(f, job) or self._rule(f, job, siblings)
             if v == SKIP:
                 out[f.id] = Answer(None, "skip", 0)
@@ -1101,7 +1113,8 @@ class QAEngine:
             twins[key] = [f]
             ask.append(f)
         questions = [
-            {"id": f.id, "question": f.label, "type": f.kind, "options": options_for_llm(f.label, f.options, self._option_hints()), "required": f.required}
+            {"id": f.id, "question": f.label, "type": f.kind, "options": options_for_llm(f.label, f.options, self._option_hints()),
+             "required": f.required, "context": f.context}
             for f in ask
         ]
         bank_hits: list[dict] = []
@@ -1111,6 +1124,10 @@ class QAEngine:
         bank_hits = [h for h in bank_hits if not (h["q"] in seen or seen.add(h["q"]))][:12]
         # a descrição da vaga só importa para pergunta aberta ("por que aqui?", "fale sobre você")
         open_q = any(f.kind == "textarea" or OPEN_QUESTION_RE.search(normalize(f.label)) for f in ask)
+        personalized = bool(open_q and getattr(self.cfg, 'personalize_answers', True))
+        if personalized:
+            from .intelligence import professional_evidence
+            compact['professional_evidence'] = professional_evidence(self.profile)
 
         try:
             llm_answers = self.llm.answer_questions(
@@ -1119,7 +1136,7 @@ class QAEngine:
                 bank_hits=bank_hits,
                 job={"title": job.title, "company": job.company, "location": job.location,
                      "description": (job.description or "") if open_q else "",
-                     "classification": job.classification or {}},
+                     "classification": job.classification or {}, "personalized": personalized},
                 always_ask_topics=self.cfg.always_ask_topics,
             ) if ask else []
         except BudgetExceeded as e:
@@ -1148,6 +1165,14 @@ class QAEngine:
             needs = bool(a.get("needs_user"))
             topic = a.get("topic") or ""
             company_specific = bool(a.get("company_specific"))
+            if personalized and f.kind in ('text', 'textarea') and OPEN_QUESTION_RE.search(normalize(f.label)):
+                company_specific = True
+                valid_ids = {e['id'] for e in compact['professional_evidence']}
+                cited = a.get('evidence_ids')
+                if not isinstance(cited, list) or not cited or any(not isinstance(e, str) or e not in valid_ids for e in cited):
+                    needs = True
+                    value = None
+                    a = dict(a, suggested='')
             if f.kind in ("select", "radio", "combobox", "multiselect") and value not in (None, ""):
                 value = self._match_option(value, f.options)
             if needs or (conf < self.cfg.min_answer_confidence and f.required):
