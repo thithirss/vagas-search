@@ -2144,3 +2144,72 @@ stacks:
     url: https://www.coursera.org/learn/front-end-react
     status: todo
     year: ''
+  microsserviços:
+  - name: Microsserviços Java com Spring Boot e Spring Cloud
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: Microsserviços com Spring Boot, Spring Cloud e Docker
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: Microservices with Node JS and React
+    issuer: Udemy
+    hours: 0
+    url: https://www.udemy.com/course/microservices-with-node-js-and-react/
+    status: todo
+    year: ''
+  - name: Building Scalable Java Microservices with Spring Boot and Spring Cloud
+    issuer: Coursera
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  express:
+  - name: Node.js do Zero a Maestria com diversos Projetos
+    issuer: Udemy
+    hours: 32
+    url: ''
+    status: todo
+    year: ''
+  - name: 'Node.js, Express, MongoDB & More: The Complete Bootcamp'
+    issuer: Udemy
+    hours: 42
+    url: ''
+    status: todo
+    year: ''
+  - name: Node.js - The Complete Guide (MVC, REST APIs, GraphQL, Deno)
+    issuer: Udemy
+    hours: 40
+    url: ''
+    status: todo
+    year: ''
+  rest apis:
+  - name: API RESTful com Spring Boot 3, Java e JPA
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: API REST com Node.js, Express e MongoDB
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: REST APIs with Flask and Python
+    issuer: Udemy
+    hours: 17
+    url: ''
+    status: todo
+    year: ''
+  - name: APIs and Microservices
+    issuer: freeCodeCamp
+    hours: 0
+    url: ''
+    status: todo
+    year: ''

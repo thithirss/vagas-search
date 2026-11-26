@@ -528,6 +528,7 @@ class Pipeline:
             job.status, job.reason = "queued", None
         self.db.save_job(job)
         if job.status == "queued":
+            self._assess_fit(job)
             self._auto_suggest_courses(cls)
             if track and track.get("notify"):
                 try:
@@ -540,6 +541,15 @@ class Pipeline:
                 except Exception:
                     pass
         return job.status == "queued"
+
+    def _assess_fit(self, job: Job) -> None:
+        if not self.s.llm.assess_fit or not callable(getattr(self.llm, 'json', None)):
+            return
+        from .intelligence import assess_job
+        result = assess_job(self.llm, self.db, self.profile, job)
+        if result:
+            job.classification = dict(job.classification or {}, fit_assessment=result)
+            self.db.save_job(job)
 
     def _auto_suggest_courses(self, cls: dict) -> None:
         """Garante >= min_udemy cursos sugeridos (cache) para cada stack da vaga que exista no perfil."""
@@ -828,6 +838,7 @@ class Pipeline:
         return get_applier(job.ats or "generic")
 
     def apply(self, page: Page, job: Job) -> FlowResult:
+        self._assess_fit(job)
         ctx = ApplyContext(
             settings=self.s, browser=self.browser, db=self.db, qa=self.qa, profile=self.profile,
             resume=lambda: self.resume_for_upload(job),   # só gera o PDF se o formulário pedir
@@ -929,6 +940,12 @@ class Pipeline:
             job.reason = res.reason
             self.db.save_job(job)
         self.db.log("info", f"{res.status}: {res.reason}", job.id, {"steps": res.steps, "bucket": bucket})
+        if res.status in ('failed', 'needs_user') and self.s.llm.analyze_failures:
+            from .intelligence import failure_report
+            try:
+                failure_report(self.db, self.llm)
+            except Exception as exc:
+                self.db.log('warning', f'Padrões de falha indisponíveis ({type(exc).__name__})', job.id)
         return res
 
     def _queue_priority(self, job: Job) -> tuple:

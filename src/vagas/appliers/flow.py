@@ -176,6 +176,8 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
     error_rounds = 0
     last_errors: list[str] = []
     fields: list[FormField] = []
+    from ..form_intelligence import FormIntelligence
+    intelligence = FormIntelligence(ctx, job, ats)
 
     waited_for_modal = 0
     uploaded_via_chooser = False
@@ -218,6 +220,8 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
         if amb is not None:
             return FlowResult("skipped", f"formulário indica trabalho em inglês: '{(amb.q.label or '')[:60]}'", step, answers_log)
         forms.prefetch_combobox_options(scope, fields)
+        intelligence.observe(scope, fields)
+        intelligence.understand(scope, fields)
 
         invalid = forms.invalid_field_ids(scope) if last_errors else set()
         falhou_arquivo = False        # input de arquivo que recusou set_input_files (DBC): tenta o seletor do sistema
@@ -269,6 +273,7 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
                      and not re.search(r"\(\w{2,3}\)\s*$", f.q.label or "")]
             if not extra:
                 break
+            intelligence.understand(scope2, extra)
             console.print(f"[dim]  etapa {step}: {len(extra)} campo(s) novo(s) após preencher[/]")
             try:
                 answers2 = ctx.qa.answer_batch([f.q for f in extra], job, skip_optional=(same_count == 0))
@@ -330,6 +335,9 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
             error_rounds += 1
             missing = [f for f in fields if f.q.required and not f.is_filled and f.q.kind != "file"]
             console.print(f"[yellow]  etapa {step}: botão '{btn[1][9:]}' desabilitado; obrigatórios vazios: {[f.q.label[:30] for f in missing]}[/]")
+            if intelligence.recover(scope, fields, forms.errors(scope) or ['Botão de avançar desabilitado'], answers_log):
+                last_errors, error_rounds = [], 0
+                continue
             if error_rounds > 2 or not missing:
                 forms.dump_learn(page, job.id, ats, fields, "botão desabilitado; obrigatórios: " + ", ".join(f.q.label[:40] for f in missing), step)
                 return FlowResult("failed", "botão de avançar desabilitado (campos obrigatórios não aceitos)", step, answers_log)
@@ -419,6 +427,9 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
                 console.print(f"[dim]  etapa {step}: fechei uma lista aberta que cobria a página[/]")
                 continue
             # plano B: a IA barata (ou o que já funcionou neste site) escolhe onde clicar
+            if intelligence.recover(scope, fields, ['Sem botão de avançar; possível campo não confirmado'], answers_log):
+                last_errors, error_rounds = [], 0
+                continue
             from .. import rescue
             rs = rescue.pick(ctx, page, job, "advance", fields)
             if rs.action == "click":
@@ -520,11 +531,12 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
             pass
 
         # o frame pode ter sido trocado após o clique: re-resolve o escopo antes de ler texto/erros
-        scope_after, _ = forms.best_scope(page, root_selector)
+        scope_after, fields_after = forms.best_scope(page, root_selector)
         text = forms.page_text(page, root_selector) or forms.page_text(page)
         if scope_after is not page:
             text += "\n" + forms.page_text(scope_after)   # tela de "obrigado" pode estar dentro do iframe (InHire/Quill Forms)
         if SUCCESS_RE.search(text) or (kind == "submit" and re.search(r"/(confirmation|confirmacao|thank-?you|obrigado|success|sucesso|applied|candidatura-enviada)\b", page.url or "", re.I)):
+            intelligence.observe(scope_after, fields_after)
             return FlowResult("applied", "sucesso", step + 1, answers_log)
         if kind == "submit" and (forms.REJECTED_RE.search(page.url or "") or forms.REJECTED_RE.search(text[:3000])):
             # enviada, mas o ATS reprovou automaticamente (pergunta eliminatória respondida com a verdade)
@@ -587,6 +599,9 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
                         if new_val:
                             ok = forms.fill_field(scope_after, f, new_val, ctx.resume)
                             console.print(f"[dim]  etapa {step}: {'✓' if ok else '✗'} corrigido valor/hora '{f.q.label[:40]}' ← {new_val}[/]")
+            if error_rounds >= 2 and intelligence.recover(scope_after, forms.scan(scope_after), errs, answers_log):
+                last_errors, error_rounds = [], 0
+                continue
             if error_rounds > 2:
                 forms.dump_learn(page, job.id, ats, fields, "erros persistentes: " + "; ".join(errs[:5]), step)
                 return FlowResult("failed", "erros no formulário: " + "; ".join(errs[:3])[:200], step, answers_log)
@@ -594,6 +609,9 @@ def run_form_flow(ctx: ApplyContext, page: Page, job: Job, *, ats: str, root_sel
         last_errors = []
         if sig == prev_sig:
             same_count += 1
+            if same_count >= 1 and intelligence.recover(scope_after, forms.scan(scope_after), ['Mesma etapa após clicar em avançar'], answers_log):
+                last_errors, error_rounds, same_count = [], 0, 0
+                continue
             if same_count >= 2:
                 forms.dump_learn(page, job.id, ats, fields, "preso na mesma etapa", step)
                 return FlowResult("failed", "preso na mesma etapa do formulário", step, answers_log)

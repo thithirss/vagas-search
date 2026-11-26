@@ -84,7 +84,8 @@ def profile_for_forms(profile: dict) -> dict:
     certs = profile.get("certifications") or []
     keep["certifications"] = [str(c.get("name") if isinstance(c, dict) else c)[:80] for c in certs][:12]
     keep["experiences"] = [
-        {k: e.get(k) for k in ("company", "title", "start", "end", "employment_type", "stack")}
+        {**{k: e.get(k) for k in ("company", "title", "start", "end", "employment_type", "stack")},
+         "bullets": (e.get("bullets") or [])[:3]}
         for e in profile.get("experiences") or []
     ]
     return keep
