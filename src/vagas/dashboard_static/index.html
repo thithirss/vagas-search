@@ -1412,7 +1412,7 @@ views.prefs = async () => {
   const paint = () => {
     $$('[data-k]', root).forEach(el => {
       const k = el.dataset.k, f = F[k], val = v[k];
-      if (document.activeElement === el && !['checkbox'].includes(el.type)) return;
+      if (document.activeElement === el && el.matches('input:not([type="checkbox"]), textarea, select')) return;
       if (el.dataset.val !== undefined) el.classList.toggle('on', +el.dataset.val === val);
       else if (el.dataset.days !== undefined) el.value = val % 24 ? '' : val / 24;
       else if (el.dataset.multi !== undefined) el.classList.toggle('on', (val || []).includes(el.dataset.multi));

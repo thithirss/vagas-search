@@ -45,6 +45,15 @@ class IntelligenceDashboardTests(unittest.TestCase):
                            'status': 'gap', 'evidence': ''}]}}}
         elif path == '/api/job/job1/fit':
             result = {'score': 50}
+        elif path == '/api/prefs':
+            result = {
+                'values': {'filters.allowed_seniorities': ['junior']},
+                'schema': [{'id': 'filters', 'title': 'Filtros', 'fields': [{
+                    'key': 'filters.allowed_seniorities', 'label': 'Senioridade', 'type': 'multi',
+                    'options': [['junior', 'Júnior'], ['pleno', 'Pleno']],
+                }]}],
+                'changed': [], 'presets': {}, 'searches_total': 1, 'run_running': False,
+            }
         elif path == '/api/tasks':
             result = {'running': [], 'recent': []}
         elif path.startswith('/api/jobs') or path == '/api/applications':
@@ -68,6 +77,15 @@ class IntelligenceDashboardTests(unittest.TestCase):
         self.page.locator('[data-fitjob]').click()
         self.page.wait_for_function("() => document.querySelector('[data-fitjob]') && !document.querySelector('[data-fitjob]').disabled")
         self.assertIn(('POST', '/api/job/job1/fit'), self.calls)
+        self.assertEqual(self.errors, [])
+
+    def test_preference_chip_updates_on_first_click(self):
+        self.page.evaluate("location.hash = '#/prefs'")
+        button = self.page.locator('button[data-multi="pleno"]')
+        button.wait_for()
+        button.click()
+
+        self.assertIn('on', (button.get_attribute('class') or '').split())
         self.assertEqual(self.errors, [])
 
 
