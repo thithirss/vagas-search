@@ -143,3 +143,8 @@ class Budget:
 
 class BudgetExceeded(Exception):
     """IA bloqueada pelo teto mensal. O chamador deve seguir pelo caminho determinístico."""
+
+
+class AIKeyInvalid(BudgetExceeded):
+    """Chave da OpenAI expirada/inválida (401). Mesmo tratamento do teto: segue sem IA até trocarem a chave.
+    Em 19–25/11 a chave expirou, cada chamada virava 3 tentativas + vaga parada na fila e a busca travou."""

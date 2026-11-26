@@ -7,7 +7,30 @@ from typing import Any
 
 from openai import OpenAI
 
-from .budget import Budget, BudgetExceeded
+from .budget import AIKeyInvalid, Budget, BudgetExceeded
+
+KEY_INVALID_RE = re.compile(r"Error code: 401|invalid_api_key|api key has expired|incorrect api key|"
+                            r"api key (is )?(invalid|revoked)|authentication_error", re.I)
+_key_alerted = False
+
+
+def _key_invalid(msg: str) -> bool:
+    return bool(KEY_INVALID_RE.search(msg or ""))
+
+
+def _alert_key(msg: str) -> None:
+    """Avisa UMA vez por processo no Telegram: só a pessoa troca a chave."""
+    global _key_alerted
+    if _key_alerted:
+        return
+    _key_alerted = True
+    try:
+        from .notify import notify
+        notify("🔑 A chave da OpenAI expirou ou é inválida. O bot segue sem IA (regras e currículos já prontos), "
+               "mas vagas ambíguas são descartadas. Crie uma chave nova em platform.openai.com, troque "
+               "OPENAI_API_KEY no .env e reinicie a leva pelo painel.\n" + msg[:150])
+    except Exception:
+        pass
 from .config import LLMCfg
 from .db import DB
 
@@ -118,6 +141,9 @@ class LLM:
                     # créditos da OpenAI acabaram: é orçamento esgotado, não erro transitório.
                     # Sem retentar (eram 3 tentativas com espera) e o chamador cai no caminho sem IA.
                     raise BudgetExceeded("créditos da OpenAI esgotados: seguindo só pelo caminho sem IA") from e
+                if _key_invalid(msg):
+                    _alert_key(msg)
+                    raise AIKeyInvalid("chave da OpenAI expirada ou inválida: seguindo só pelo caminho sem IA") from e
                 last_err = e
                 import time
                 time.sleep(2 * (attempt + 1))

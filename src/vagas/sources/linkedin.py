@@ -315,6 +315,23 @@ class LinkedInSource(Source):
             label = ""
         job.apply_type = "easy_apply" if re.search(r"simplificada|easy apply", label) else "external"
 
+    SCROLL_TOP_JS = """() => {
+        window.scrollTo(0, 0);
+        for (const e of document.querySelectorAll('*')) {
+            if (e.scrollTop > 0 && e.scrollHeight > e.clientHeight) e.scrollTop = 0;
+        }
+    }"""
+
+    @staticmethod
+    def _scroll_top(page: Page) -> None:
+        """Volta ao topo a janela E contêineres internos rolados (o LinkedIn novo rola um div, não a janela:
+        com a página rolada só sobra o clone desabilitado do botão no cabeçalho fixo)."""
+        try:
+            page.evaluate(LinkedInSource.SCROLL_TOP_JS)
+            time.sleep(0.4)
+        except Exception:
+            pass
+
     @staticmethod
     def apply_button(page: Page, timeout_s: float = 12.0):
         """Botão/link de candidatura da VAGA ABERTA (hoje é um <a> com classes embaralhadas).
@@ -326,12 +343,8 @@ class LinkedInSource(Source):
         ]
         deadline = time.time() + timeout_s
         # o cabeçalho fixo tem um clone DESABILITADO do botão quando a página está rolada: volta ao topo antes de procurar
-        try:
-            page.evaluate("() => window.scrollTo(0, 0)")
-            time.sleep(0.4)
-        except Exception:
-            pass
         while True:
+            LinkedInSource._scroll_top(page)
             cands = []
             for pat in patterns:
                 for role in ("button", "link"):

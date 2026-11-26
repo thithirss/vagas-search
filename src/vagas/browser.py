@@ -133,6 +133,14 @@ class Browser:
                     if not re.search(r"closed|already stopped", str(error), re.I):
                         raise
 
+    def restart(self) -> "Browser":
+        """Chrome fechado/morto no meio da leva (janela fechada à mão, crash): sobe um novo no mesmo perfil."""
+        try:
+            self.stop()
+        except Exception:
+            pass
+        return self.start()
+
     def __enter__(self) -> "Browser":
         return self.start()
 

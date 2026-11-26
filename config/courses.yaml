@@ -2144,3 +2144,167 @@ stacks:
     url: https://www.coursera.org/learn/front-end-react
     status: todo
     year: ''
+  express:
+  - name: NodeJS do Zero a Maestria com diversos Projetos
+    issuer: Udemy
+    hours: 24
+    url: https://www.udemy.com/course/nodejs-do-zero-a-maestria-com-diversos-projetos/
+    status: todo
+    year: ''
+  - name: Curso completo de NodeJS, Express, MongoDB e mais!
+    issuer: Udemy
+    hours: 20
+    url: ''
+    status: todo
+    year: ''
+  - name: 'Node.js: APIs RESTful com Express e MongoDB'
+    issuer: Udemy
+    hours: 12
+    url: ''
+    status: todo
+    year: ''
+  - name: Server-side Development with NodeJS, Express and MongoDB
+    issuer: Coursera
+    hours: 40
+    url: https://www.coursera.org/learn/server-side-nodejs
+    status: todo
+    year: ''
+  playwright:
+  - name: Automação de Testes com Playwright
+    issuer: Udemy
+    hours: 6
+    url: ''
+    status: todo
+    year: ''
+  - name: Testes Automatizados com Playwright e TypeScript
+    issuer: Udemy
+    hours: 8
+    url: ''
+    status: todo
+    year: ''
+  - name: Playwright do Zero ao Avançado
+    issuer: Udemy
+    hours: 7
+    url: ''
+    status: todo
+    year: ''
+  webpack:
+  - name: 'Webpack 5: The Complete Guide'
+    issuer: Udemy
+    hours: 5
+    url: ''
+    status: todo
+    year: ''
+  - name: 'Webpack 4: The Complete Guide'
+    issuer: Udemy
+    hours: 5
+    url: ''
+    status: todo
+    year: ''
+  - name: Webpack 5 do Zero ao Avançado
+    issuer: Udemy
+    hours: 4
+    url: ''
+    status: todo
+    year: ''
+  docker compose:
+  - name: Docker para Desenvolvedores (com Docker Swarm e Kubernetes)
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: 'Docker: do Básico ao Avançado'
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: 'Docker Completo: do Zero à Produção'
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: 'Docker: criando e gerenciando containers'
+    issuer: Alura
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  github actions:
+  - name: 'GitHub Actions: CI/CD na prática'
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: GitHub Actions do zero ao avançado
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  - name: 'GitHub Actions: The Complete Guide'
+    issuer: Udemy
+    hours: 0
+    url: ''
+    status: todo
+    year: ''
+  api rest:
+  - name: REST API's RESTFul do 0 à AWS c. Spring Boot 3 Java e Docker
+    issuer: Udemy
+    hours: 18
+    url: ''
+    status: todo
+    year: ''
+  - name: REST API com Node.js, Express, MongoDB e TypeScript
+    issuer: Udemy
+    hours: 12
+    url: ''
+    status: todo
+    year: ''
+  - name: 'Spring Boot 3: desenvolvimento de APIs REST com Java'
+    issuer: Udemy
+    hours: 15
+    url: ''
+    status: todo
+    year: ''
+  bootstrap:
+  - name: 'Bootstrap 5: do básico ao avançado (com 4 projetos)'
+    issuer: Udemy
+    hours: 10
+    url: ''
+    status: todo
+    year: ''
+  - name: Bootstrap 5 - Do Básico ao Avançado
+    issuer: Udemy
+    hours: 8
+    url: ''
+    status: todo
+    year: ''
+  - name: 'Bootstrap 5: Curso Completo'
+    issuer: Udemy
+    hours: 6
+    url: ''
+    status: todo
+    year: ''
+  jquery:
+  - name: jQuery - Curso Completo
+    issuer: Udemy
+    hours: 8
+    url: ''
+    status: todo
+    year: ''
+  - name: jQuery para Iniciantes
+    issuer: Udemy
+    hours: 5
+    url: ''
+    status: todo
+    year: ''
+  - name: Aprenda jQuery do Zero ao Avançado
+    issuer: Udemy
+    hours: 7
+    url: ''
+    status: todo
+    year: ''

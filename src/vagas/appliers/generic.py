@@ -374,8 +374,13 @@ class GenericApplier(Applier):
         deadline = time.time() + seconds
         while time.time() < deadline:
             try:
-                n = page.evaluate("() => document.querySelectorAll('input, textarea, select, button, [role=button]').length")
-                if n and n > 2:
+                # esqueleto de carregamento (InHire) só tem os botões do widget de acessibilidade: exige também texto
+                # visível ou algum campo, senão a espera acabava antes de a vaga renderizar (25/11)
+                n, txt, inputs = page.evaluate(
+                    "() => [document.querySelectorAll('input, textarea, select, button, [role=button]').length,"
+                    " ((document.body && document.body.innerText) || '').trim().length,"
+                    " document.querySelectorAll('input, textarea, select').length]")
+                if n and n > 2 and (txt >= 150 or inputs > 0):
                     return
             except Exception:
                 pass

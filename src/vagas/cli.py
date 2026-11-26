@@ -363,6 +363,12 @@ def apply(limit: Optional[int] = typer.Option(None, help="máximo de vagas nesta
         rt.close()
 
 
+def _queue_state(db) -> list[tuple]:
+    """Retrato da fila (id, status, tentativas, motivo) para saber se uma volta mudou alguma coisa."""
+    return db.conn.execute("SELECT id, status, attempts, reason FROM jobs WHERE status IN ('new','queued') "
+                           "ORDER BY id").fetchall()
+
+
 @app.command()
 def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
     """Modo contínuo: descobre a cada N minutos e aplica ao longo do dia dentro da janela ativa."""
@@ -413,6 +419,8 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
             # em pausa, como o Indeed pedindo login, ou de canal no teto) não pode segurar a busca: de 14 a 17/11 cinco
             # vagas do Indeed paradas na fila travaram a descoberta e o bot ficou 3 dias sem vaga nova.
             queue_idle = not rt.db.queue(limit=1) or last_processed == 0
+            if last and datetime.fromisoformat(last) + interval * 4 <= datetime.now():
+                queue_idle = True   # rede de segurança: busca atrasada demais roda mesmo com fila (nunca mais dias sem buscar)
             batch = rt.s.limits.prepare_batch
             left_new = len(rt.db.list_jobs(status="new", limit=batch + 1))
             if queue_idle and left_new and left_new != stalled_new:
@@ -430,8 +438,12 @@ def run(interactive: bool = typer.Option(False, "--interactive", "-i")):
                     notify(f"🔎 {sum(counts.values())} vagas novas, {q} na fila.")
             # erro numa rodada não pode derrubar o bot o dia inteiro: registra, avisa uma vez e tenta de novo
             try:
+                before = _queue_state(rt.db)
                 summary = p.process_queue()
-                last_processed = summary.processed
+                # Volta que "processou" mas não mudou nada (as mesmas vagas voltaram para a fila, nenhuma enviada) é
+                # fila parada: em 19–25/11 duas vagas com a classificação falhando (chave da OpenAI expirada) eram
+                # tentadas a cada minuto e a busca nunca mais rodou.
+                last_processed = summary.processed if (summary.applied or _queue_state(rt.db) != before) else 0
                 last_error = ""
             except Exception as e:
                 msg = f"{type(e).__name__}: {str(e)[:200]}"

@@ -170,6 +170,9 @@ class RunSummary:
     items: list[tuple[str, str, str]] = field(default_factory=list)
 
 
+BROWSER_CLOSED_RE = re.compile(r"Target page, context or browser has been closed|Browser has been closed|Target closed", re.I)
+
+
 def _offline_reason(reason: str | None) -> bool:
     """Motivo de falha com erro de rede ("site externo não abriu", goto…) e a internet fora do ar agora."""
     from .netcheck import offline_error
@@ -844,6 +847,8 @@ class Pipeline:
             from .netcheck import offline_error
             if offline_error(e):
                 return FlowResult("offline", "sem internet")
+            if BROWSER_CLOSED_RE.search(str(e)):
+                return FlowResult("browser_closed", "navegador fechou no meio da candidatura")
             self.db.log("error", f"applier {applier.name} explodiu: {e}", job.id)
             return FlowResult("failed", f"exceção em {applier.name}: {str(e)[:150]}")
 
@@ -871,7 +876,8 @@ class Pipeline:
         self.db.save_job(job)
         if job.status == "in_progress" and (not job.classification or not job.description):
             if not self.prepare(page, job, force=force):
-                return FlowResult("skipped", job.reason or "")
+                row = self.db.conn.execute("SELECT reason FROM jobs WHERE id=?", (job.id,)).fetchone()
+                return FlowResult("skipped", (row[0] if row else None) or job.reason or "")   # motivo gravado agora, não o antigo
         elif not force:
             if is_too_old(job.posted_at, self._max_age(job)):
                 self.db.set_status(job.id, "skipped", f"publicada há mais de {self._max_age(job)}h")
@@ -918,6 +924,16 @@ class Pipeline:
             self.db.save_job(job)
             wait_online()
             return FlowResult("blocked", "sem internet")
+        elif res.status == "browser_closed":
+            # o Chrome morreu (janela fechada, crash): não é culpa da vaga; devolve a tentativa e sobe outro navegador
+            job.attempts = max(0, job.attempts - 1)
+            job.status, job.reason = "queued", "navegador fechou; tentará de novo"
+            self.db.save_job(job)
+            try:
+                self.browser.restart()
+            except Exception as e:
+                self.db.log("error", f"não consegui reabrir o navegador: {e}", job.id)
+            return FlowResult("blocked", "navegador fechou; reaberto")
         elif res.status == "blocked":
             # o SITE barrou o robô (Cloudflare do Indeed), não a vaga: devolve a tentativa e pausa a fonte
             job.attempts = max(0, job.attempts - 1)
@@ -1017,6 +1033,8 @@ class Pipeline:
             console.print(f"\n[bold cyan]▶ {job.title or '?'}[/] · {job.company or '?'} · {job.source}/{job.apply_type or '?'}  [dim]{job.id}[/]")
             summary.processed += 1
             try:
+                if page is not None and page.is_closed():
+                    page = self.browser.page()
                 res = self.process(page, job, force=force and bool(job_ids))
                 if res.status in ("applied", "already_applied", "skipped") and self.db.kv_get(f"refinish:{job.id}") == "1":
                     self.db.kv_set(f"refinish:{job.id}", "")   # concluída (ou descartada): a trava de reenvio volta a valer
